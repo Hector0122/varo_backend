@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  transactions Transaction[]
+  goals        Goal[]
+}
+
+model Transaction {
+  id       String   @id @default(uuid())
+  userId   String
+  amount   Decimal
+  type     String
+  category String
+  note     String?
+  date     DateTime
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Goal {
+  id           String   @id @default(uuid())
+  userId       String
+  name         String
+  targetAmount Decimal
+  currentAmount Decimal @default(0)
+  createdAt    DateTime @default(now())
+
+  user     User               @relation(fields: [userId], references: [id])
+  snapshots ForecastSnapshot[]
+}
+
+model ForecastSnapshot {
+  id              String   @id @default(uuid())
+  goalId          String
+  projectedDate   DateTime
+  monthlySaving   Decimal
+  confidenceScore Float
+  createdAt       DateTime @default(now())
+
+  goal Goal @relation(fields: [goalId], references: [id])
+}
