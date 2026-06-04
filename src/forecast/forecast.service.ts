@@ -7,8 +7,10 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export interface ForecastResult {
   goalId: string;
+  goalName: string;
   remainingAmount: number;
   avgMonthlySaving: number;
+  monthlyNeeded: number;
   estimatedDays: number;
   estimatedDate: Date;
   trend: 'up' | 'stable' | 'down';
@@ -64,8 +66,10 @@ export class ForecastService {
 
       return {
         goalId,
+        goalName: goal.name,
         remainingAmount: 0,
         avgMonthlySaving: 0,
+        monthlyNeeded: 0,
         estimatedDays: 0,
         estimatedDate: new Date(),
         trend: 'stable',
@@ -84,6 +88,7 @@ export class ForecastService {
     const estimatedDays = Math.ceil(months * 30);
     const estimatedDate = new Date();
     estimatedDate.setDate(estimatedDate.getDate() + estimatedDays);
+    const monthlyNeeded = Math.ceil(monthlySaving);
 
     // 4. Confidence score basado en volumen de transacciones
     const txCount = await this.prisma.transaction.count({ where: { userId } });
@@ -122,8 +127,10 @@ export class ForecastService {
 
     return {
       goalId,
+      goalName: goal.name,
       remainingAmount,
       avgMonthlySaving: monthlySaving,
+      monthlyNeeded,
       estimatedDays,
       estimatedDate,
       trend,
