@@ -7,6 +7,8 @@
   - Crea `ForecastSnapshot` en DB con `confidenceScore` y `projectedDate`
   - Recalcula forecast automáticamente al crear/actualizar/eliminar transactions
   - Calcula tendencia (`up`/`stable`/`down`) comparando con snapshot anterior
+  - Agrega `goalName` y `monthlyNeeded` a la respuesta para el widget completo
+- [x] **Widget Countdown completo** — ForecastWidget ahora incluye: nombre de meta, número grande de días restantes, barra de progreso + %, montos acumulado/objetivo, fecha estimada, ahorro mensual necesario, badge de estado (verde/amarillo/rojo)
 - [x] **ESLint fixes** — Todos los archivos pasan `pnpm run lint` sin errores
   - Tipado de `req.user` en todos los controllers via `RequestWithUser`
   - Eliminación de `any` en transacciones (`Prisma.TransactionWhereInput`)
@@ -41,6 +43,8 @@
 
 ### Frontend
 - [x] **Fix: cambio de pantalla post-login** — AuthContext global permite que `Root` detecte autenticación y navegue de `AuthStack` a `AppNavigator`
+- [x] **Widget Countdown** — ForecastWidget completo con nombre de meta, número grande de días restantes, barra de progreso + %, montos, fecha estimada, ahorro mensual necesario, badge de estado (verde/amarillo/rojo)
+- [x] **Loading + Error states** — Componentes `LoadingScreen` y `ErrorMessage` reutilizables agregados a pantallas principales
 
 ## Pendiente (Próxima Sesión)
 
