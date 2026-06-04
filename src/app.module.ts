@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { GoalsModule } from './goals/goals.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { ForecastModule } from './forecast/forecast.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { TransactionsModule } from './transactions/transactions.module';
     AuthModule,
     TransactionsModule,
     GoalsModule,
+    ForecastModule,
   ],
   controllers: [AppController],
   providers: [AppService],

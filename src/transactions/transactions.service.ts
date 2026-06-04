@@ -1,11 +1,26 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ForecastService } from '../forecast/forecast.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private forecastService: ForecastService,
+  ) {}
+
+  private async recalculateForecasts(userId: string) {
+    const goals = await this.prisma.goal.findMany({ where: { userId } });
+    for (const goal of goals) {
+      try {
+        await this.forecastService.computeForecast(goal.id, userId);
+      } catch {
+        // Ignorar metas que no pueden generar forecast (ahorro <= 0)
+      }
+    }
+  }
 
   async findAll(userId: string, type?: string, category?: string) {
     const where: any = { userId };
@@ -29,7 +44,7 @@ export class TransactionsService {
   }
 
   async create(userId: string, dto: CreateTransactionDto) {
-    return this.prisma.transaction.create({
+    const tx = await this.prisma.transaction.create({
       data: {
         userId,
         amount: dto.amount,
@@ -39,12 +54,14 @@ export class TransactionsService {
         date: new Date(dto.date),
       },
     });
+    await this.recalculateForecasts(userId);
+    return tx;
   }
 
   async update(id: string, userId: string, dto: UpdateTransactionDto) {
     await this.findOne(id, userId);
 
-    return this.prisma.transaction.update({
+    const tx = await this.prisma.transaction.update({
       where: { id },
       data: {
         ...(dto.amount !== undefined && { amount: dto.amount }),
@@ -54,11 +71,15 @@ export class TransactionsService {
         ...(dto.date && { date: new Date(dto.date) }),
       },
     });
+    await this.recalculateForecasts(userId);
+    return tx;
   }
 
   async remove(id: string, userId: string) {
     await this.findOne(id, userId);
 
-    return this.prisma.transaction.delete({ where: { id } });
+    const tx = await this.prisma.transaction.delete({ where: { id } });
+    await this.recalculateForecasts(userId);
+    return tx;
   }
 }
