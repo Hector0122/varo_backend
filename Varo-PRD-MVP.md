@@ -513,32 +513,42 @@ El MVP está listo cuando:
 - [x] Build compila sin errores
 - [x] DB sincronizada (Neon PostgreSQL)
 
+## Completado (Sesión 2026-06-04)
+
+### Backend
+- [x] **Forecast Engine V1** (`src/forecast/`)
+  - `GET /forecast/:goalId` — Calcula ahorro neto, meses restantes, fecha estimada
+  - `GET /forecast/:goalId/history` — Historial de snapshots
+  - Crea `ForecastSnapshot` en DB con `confidenceScore` y `projectedDate`
+  - Recalcula forecast automáticamente al crear/actualizar/eliminar transactions
+  - Calcula tendencia (`up`/`stable`/`down`) comparando con snapshot anterior
+
+### Frontend (`varo_frontend/`)
+- [x] Dependencias instaladas: React Navigation, TanStack Query, React Hook Form, Axios, AsyncStorage, react-native-svg
+- [x] Estructura de carpetas (`src/screens/`, `src/components/`, `src/navigation/`, `src/hooks/`, `src/services/`, `src/types/`)
+- [x] Pantalla Login con validación
+- [x] Pantalla Register
+- [x] Pantalla Dashboard (resumen de ingresos, gastos, ahorro neto, meta principal + forecast)
+- [x] Pantalla Movimientos (lista, crear, eliminar con long-press)
+- [x] Pantalla Metas (lista, crear, eliminar, navegación a detalle)
+- [x] Pantalla Detalle Meta (progreso, forecast widget, tendencia, agregar ahorro)
+- [x] Pantalla Perfil (logout)
+- [x] Servicio API con Axios interceptores (JWT + refresh token automático)
+- [x] Hook `useAuth` para manejo de tokens y estado de sesión
+- [x] Typecheck pasa sin errores
+
 ## Pendiente (Próxima Sesión)
 
 ### Backend
-- [ ] **Forecast Engine V1** (`src/forecast/`)
-  - `GET /forecast/:goalId`
-  - Fórmula: `ahorro_neto = total_ingresos - total_gastos`, `meses = restante / ahorro_neto`
-  - Crear `ForecastSnapshot` en DB
-  - Calcular `confidenceScore` y `projectedDate`
-  - Recalcular forecast automáticamente al crear/actualizar transactions
-
-- [ ] **Tendencias** (verde/amarillo/rojo según hábitos de ahorro)
-
-### Frontend (`varo_frontend/`)
-- [ ] Configurar React Navigation
-- [ ] Estructura de carpetas (`screens/`, `components/`, `navigation/`, `hooks/`, `services/`)
-- [ ] Pantalla Login
-- [ ] Pantalla Register
-- [ ] Pantalla Dashboard (saldo, ingresos, gastos, ahorro neto, meta principal)
-- [ ] Pantalla Movimientos (lista + crear/editar/eliminar)
-- [ ] Pantalla Metas (lista + crear/editar/eliminar)
-- [ ] Pantalla Detalle Meta (progreso, forecast, tendencia)
-- [ ] Conectar frontend a API (Auth header, TanStack Query)
-
-### Testing
 - [ ] Tests unitarios backend
-- [ ] Tests e2e
+- [ ] Tests e2e backend
+
+### Frontend
+- [ ] Tests unitarios/componentes
+- [ ] Ejecutar en simulador/dispositivo y validar flujo completo
+- [ ] Polish UI (colores, espaciado, animaciones básicas)
+- [ ] Manejo de estados de carga y errores globales
+- [ ] Deep linking / navegación a detalle de meta desde notificaciones (preparación Fase 4)
 
 ## Stack Actualizado
 
