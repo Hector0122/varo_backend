@@ -41,8 +41,12 @@ export class GoalsService {
       where: { id },
       data: {
         ...(dto.name && { name: dto.name }),
-        ...(dto.targetAmount !== undefined && { targetAmount: dto.targetAmount }),
-        ...(dto.currentAmount !== undefined && { currentAmount: dto.currentAmount }),
+        ...(dto.targetAmount !== undefined && {
+          targetAmount: dto.targetAmount,
+        }),
+        ...(dto.currentAmount !== undefined && {
+          currentAmount: dto.currentAmount,
+        }),
       },
     });
   }

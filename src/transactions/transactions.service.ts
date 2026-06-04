@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ForecastService } from '../forecast/forecast.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -23,7 +24,7 @@ export class TransactionsService {
   }
 
   async findAll(userId: string, type?: string, category?: string) {
-    const where: any = { userId };
+    const where: Prisma.TransactionWhereInput = { userId };
     if (type) where.type = type;
     if (category) where.category = category;
 

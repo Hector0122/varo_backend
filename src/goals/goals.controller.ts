@@ -6,10 +6,11 @@ import {
   Param,
   Patch,
   Post,
-  Request,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RequestWithUser } from '../types/request-with-user';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 import { GoalsService } from './goals.service';
@@ -20,18 +21,18 @@ export class GoalsController {
   constructor(private goalsService: GoalsService) {}
 
   @Get()
-  findAll(@Request() req) {
+  findAll(@Req() req: RequestWithUser) {
     return this.goalsService.findAll(req.user.id);
   }
 
   @Post()
-  create(@Request() req, @Body() dto: CreateGoalDto) {
+  create(@Req() req: RequestWithUser, @Body() dto: CreateGoalDto) {
     return this.goalsService.create(req.user.id, dto);
   }
 
   @Patch(':id')
   update(
-    @Request() req,
+    @Req() req: RequestWithUser,
     @Param('id') id: string,
     @Body() dto: UpdateGoalDto,
   ) {
@@ -39,7 +40,7 @@ export class GoalsController {
   }
 
   @Delete(':id')
-  remove(@Request() req, @Param('id') id: string) {
+  remove(@Req() req: RequestWithUser, @Param('id') id: string) {
     return this.goalsService.remove(id, req.user.id);
   }
 }

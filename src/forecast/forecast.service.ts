@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ForecastResult {
@@ -15,7 +19,10 @@ export interface ForecastResult {
 export class ForecastService {
   constructor(private prisma: PrismaService) {}
 
-  async computeForecast(goalId: string, userId: string): Promise<ForecastResult> {
+  async computeForecast(
+    goalId: string,
+    userId: string,
+  ): Promise<ForecastResult> {
     // 1. Verificar que la meta existe y pertenece al usuario
     const goal = await this.prisma.goal.findFirst({
       where: { id: goalId, userId },
@@ -46,7 +53,7 @@ export class ForecastService {
 
     // Si ya se alcanzó la meta
     if (remainingAmount <= 0) {
-      const snapshot = await this.prisma.forecastSnapshot.create({
+      await this.prisma.forecastSnapshot.create({
         data: {
           goalId,
           projectedDate: new Date(),
