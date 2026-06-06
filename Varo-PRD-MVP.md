@@ -1,3 +1,5 @@
+# Varo PRD - MVP
+
 ## Completado (Sesión 2026-06-04)
 
 ### Backend
@@ -46,6 +48,36 @@
 - [x] **Widget Countdown** — ForecastWidget completo con nombre de meta, número grande de días restantes, barra de progreso + %, montos, fecha estimada, ahorro mensual necesario, badge de estado (verde/amarillo/rojo)
 - [x] **Loading + Error states** — Componentes `LoadingScreen` y `ErrorMessage` reutilizables agregados a pantallas principales
 
+## Completado (Sesión 2026-06-06)
+
+### Backend
+- [x] **Módulo de Categorías** — CRUD completo con validación de duplicados
+  - Modelo Prisma `Category` con relación a `User`
+  - Seed automático de 12 categorías por defecto al crear usuario
+  - Campo `savingAllocation` en `Goal` (0-100%)
+  - Endpoint `POST /goals/:id/add-savings` para agregar ahorro a meta
+  - Forecast considera `savingAllocation` en cálculos
+- [x] **Scan de tickets** — Integración con Groq Vision API
+  - `POST /transactions/scan-receipt` recibe imagen base64
+  - Usa modelo `llama-3.2-11b-vision-preview` para extraer datos
+  - Devuelve: `amount`, `category`, `note`, `date`, `type`
+
+### Frontend
+- [x] **Sistema de Theming** — `ThemeContext` + `colors.ts` con soporte light/dark
+  - Todos los componentes y pantallas actualizados al tema
+  - `useColorScheme` + persistencia en AsyncStorage
+- [x] **Pantalla de Categorías** — Lista, crear, eliminar con modal
+- [x] **Fix: Navegación** — Tabs reducidos a 2 (Inicio + Movimientos), header con iconos (🎯 👤)
+- [x] **Fix: Movimientos** — Agregar botón de acción (editar/eliminar) en cada item
+- [x] **Fix: Edit Modal** — Modal de edición de transacciones reutilizando formulario
+- [x] **Feature: Scan de tickets** — FAB menú con 3 opciones:
+  - `✍️ Nuevo manual` — creación manual
+  - `🖼️ Escanear de galería` — selecciona imagen de la galería
+  - `📸 Escanear con cámara` — toma foto directamente
+  - Flujo: imagen → envío a Groq → preview editable → confirmación → guardado
+- [x] **Fix: Categories loading** — Agregado `isError` + `ErrorMessage` + `LoadingScreen`
+- [x] **API_BASE_URL** — Cambiado a IP local para dispositivo físico (`http://172.22.144.247:3000`)
+
 ## Stack Actualizado
 
 | Capa | Tecnología | Versión |
@@ -61,6 +93,7 @@
 | Estado Server | TanStack Query | 5.x |
 | Formularios | React Hook Form | 7.x |
 | HTTP | Axios | 1.x |
+| Image Picker | react-native-image-picker | - |
 | Deploy Backend | Railway | - |
 
 ## Notas Técnicas
@@ -72,3 +105,5 @@
 - **Railway**: Requiere `postinstall: "prisma generate"` porque `node_modules` se reinstala en cada deploy y el cliente Prisma no se commitea.
 - **Frontend env**: No usar `react-native-dotenv` (problemas con Metro). En su lugar: script `generate-config.js` que lee `.env` → `src/config.ts`.
 - **Auth state**: Usar React Context (no hook local con `useState`) para que el estado de autenticación sea observable por todo el árbol de componentes.
+- **Scan de tickets**: Requiere `GROQ_API_KEY` en backend. El frontend envía imagen en base64 al endpoint `/transactions/scan-receipt`.
+- **Dispositivo físico**: Usar IP de red local (no `localhost`) en `API_BASE_URL`.
