@@ -30,6 +30,7 @@ export class GoalsService {
         userId,
         name: dto.name,
         targetAmount: dto.targetAmount,
+        savingAllocation: dto.savingAllocation ?? 100,
       },
     });
   }
@@ -47,7 +48,19 @@ export class GoalsService {
         ...(dto.currentAmount !== undefined && {
           currentAmount: dto.currentAmount,
         }),
+        ...(dto.savingAllocation !== undefined && {
+          savingAllocation: dto.savingAllocation,
+        }),
       },
+    });
+  }
+
+  async addSavings(id: string, userId: string, amount: number) {
+    await this.findOne(id, userId);
+
+    return this.prisma.goal.update({
+      where: { id },
+      data: { currentAmount: { increment: amount } },
     });
   }
 

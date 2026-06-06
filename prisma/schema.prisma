@@ -15,6 +15,7 @@ model User {
 
   transactions Transaction[]
   goals        Goal[]
+  categories   Category[]
 }
 
 model Transaction {
@@ -29,13 +30,25 @@ model Transaction {
   user User @relation(fields: [userId], references: [id])
 }
 
+model Category {
+  id     String @id @default(uuid())
+  userId String
+  name   String
+  type   String // 'INCOME', 'EXPENSE', or 'BOTH'
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, name])
+}
+
 model Goal {
-  id           String   @id @default(uuid())
-  userId       String
-  name         String
-  targetAmount Decimal
-  currentAmount Decimal @default(0)
-  createdAt    DateTime @default(now())
+  id              String   @id @default(uuid())
+  userId          String
+  name            String
+  targetAmount    Decimal
+  currentAmount   Decimal @default(0)
+  savingAllocation Float   @default(100)
+  createdAt       DateTime @default(now())
 
   user     User               @relation(fields: [userId], references: [id])
   snapshots ForecastSnapshot[]

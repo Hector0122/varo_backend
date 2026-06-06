@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { GoalsModule } from './goals/goals.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { ForecastModule } from './forecast/forecast.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ForecastModule } from './forecast/forecast.module';
     TransactionsModule,
     GoalsModule,
     ForecastModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

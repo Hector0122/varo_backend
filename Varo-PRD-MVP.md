@@ -46,19 +46,6 @@
 - [x] **Widget Countdown** — ForecastWidget completo con nombre de meta, número grande de días restantes, barra de progreso + %, montos, fecha estimada, ahorro mensual necesario, badge de estado (verde/amarillo/rojo)
 - [x] **Loading + Error states** — Componentes `LoadingScreen` y `ErrorMessage` reutilizables agregados a pantallas principales
 
-## Pendiente (Próxima Sesión)
-
-### Backend
-- [ ] Tests unitarios backend
-- [ ] Tests e2e backend
-
-### Frontend
-- [ ] Tests unitarios/componentes
-- [ ] Ejecutar en simulador/dispositivo y validar flujo completo
-- [ ] Polish UI (colores, espaciado, animaciones básicas)
-- [ ] Manejo de estados de carga y errores globales
-- [ ] Deep linking / navegación a detalle de meta desde notificaciones (preparación Fase 4)
-
 ## Stack Actualizado
 
 | Capa | Tecnología | Versión |

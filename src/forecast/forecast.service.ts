@@ -15,6 +15,8 @@ export interface ForecastResult {
   estimatedDate: Date;
   trend: 'up' | 'stable' | 'down';
   confidenceScore: number;
+  savingAllocation: number;
+  totalMonthlySaving: number;
 }
 
 @Injectable()
@@ -34,7 +36,7 @@ export class ForecastService {
     }
 
     // 2. Agregar transacciones del usuario
-    const [incomeAgg, expenseAgg] = await Promise.all([
+    const [incomeAgg, expenseAgg, oldestTx] = await Promise.all([
       this.prisma.transaction.aggregate({
         where: { userId, type: 'INCOME' },
         _sum: { amount: true },
@@ -43,14 +45,31 @@ export class ForecastService {
         where: { userId, type: 'EXPENSE' },
         _sum: { amount: true },
       }),
+      this.prisma.transaction.findFirst({
+        where: { userId },
+        orderBy: { date: 'asc' },
+        select: { date: true },
+      }),
     ]);
 
     const totalIncome = Number(incomeAgg._sum.amount ?? 0);
     const totalExpense = Number(expenseAgg._sum.amount ?? 0);
-    const monthlySaving = totalIncome - totalExpense;
+    const netTotal = totalIncome - totalExpense;
+
+    const monthsElapsed = oldestTx
+      ? Math.max(
+          1,
+          (new Date().getTime() - new Date(oldestTx.date).getTime()) /
+            (1000 * 60 * 60 * 24 * 30.44),
+        )
+      : 1;
+
+    const monthlySaving = netTotal / monthsElapsed;
 
     const targetAmount = Number(goal.targetAmount);
     const currentAmount = Number(goal.currentAmount);
+    const allocation = Number(goal.savingAllocation ?? 100) / 100;
+    const effectiveMonthlySaving = monthlySaving * allocation;
     const remainingAmount = targetAmount - currentAmount;
 
     // Si ya se alcanzó la meta
@@ -74,21 +93,23 @@ export class ForecastService {
         estimatedDate: new Date(),
         trend: 'stable',
         confidenceScore: 1,
+        savingAllocation: Number(goal.savingAllocation ?? 100),
+        totalMonthlySaving: monthlySaving,
       };
     }
 
-    if (monthlySaving <= 0) {
+    if (effectiveMonthlySaving <= 0) {
       throw new BadRequestException(
         'No se puede calcular el forecast porque tus gastos superan o igualan tus ingresos. Ajusta tus movimientos para generar ahorro.',
       );
     }
 
     // 3. Calcular meses y fecha estimada
-    const months = remainingAmount / monthlySaving;
+    const months = remainingAmount / effectiveMonthlySaving;
     const estimatedDays = Math.ceil(months * 30);
     const estimatedDate = new Date();
     estimatedDate.setDate(estimatedDate.getDate() + estimatedDays);
-    const monthlyNeeded = Math.ceil(monthlySaving);
+    const monthlyNeeded = Math.ceil(effectiveMonthlySaving);
 
     // 4. Confidence score basado en volumen de transacciones
     const txCount = await this.prisma.transaction.count({ where: { userId } });
@@ -106,9 +127,9 @@ export class ForecastService {
     let trend: 'up' | 'stable' | 'down' = 'stable';
     if (lastSnapshot) {
       const lastSaving = Number(lastSnapshot.monthlySaving);
-      if (monthlySaving > lastSaving * 1.05) {
+      if (effectiveMonthlySaving > lastSaving * 1.05) {
         trend = 'up';
-      } else if (monthlySaving < lastSaving * 0.95) {
+      } else if (effectiveMonthlySaving < lastSaving * 0.95) {
         trend = 'down';
       } else {
         trend = 'stable';
@@ -120,7 +141,7 @@ export class ForecastService {
       data: {
         goalId,
         projectedDate: estimatedDate,
-        monthlySaving,
+        monthlySaving: effectiveMonthlySaving,
         confidenceScore,
       },
     });
@@ -129,12 +150,14 @@ export class ForecastService {
       goalId,
       goalName: goal.name,
       remainingAmount,
-      avgMonthlySaving: monthlySaving,
+      avgMonthlySaving: effectiveMonthlySaving,
       monthlyNeeded,
       estimatedDays,
       estimatedDate,
       trend,
       confidenceScore,
+      savingAllocation: Number(goal.savingAllocation ?? 100),
+      totalMonthlySaving: monthlySaving,
     };
   }
 

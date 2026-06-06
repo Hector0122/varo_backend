@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequestWithUser } from '../types/request-with-user';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { ScanReceiptDto } from './dto/scan-receipt.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionsService } from './transactions.service';
 
@@ -33,6 +34,11 @@ export class TransactionsController {
   @Post()
   create(@Req() req: RequestWithUser, @Body() dto: CreateTransactionDto) {
     return this.transactionsService.create(req.user.id, dto);
+  }
+
+  @Post('scan-receipt')
+  scanReceipt(@Body() dto: ScanReceiptDto) {
+    return this.transactionsService.scanReceipt(dto.image);
   }
 
   @Patch(':id')
