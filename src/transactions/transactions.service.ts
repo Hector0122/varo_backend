@@ -52,6 +52,15 @@ export class TransactionsService {
       throw new BadRequestException('GROQ_API_KEY no configurada');
     }
 
+    // Groq tiene un límite aproximado de 4MB para imágenes base64,
+    // pero protegemos el tier gratuito con un tope más bajo
+    const base64SizeMB = Buffer.byteLength(image, 'utf8') / (1024 * 1024);
+    if (base64SizeMB > 1.5) {
+      throw new BadRequestException(
+        `La imagen es demasiado grande (${base64SizeMB.toFixed(1)}MB). Intenta con una foto de menor resolución o más cercana al ticket.`,
+      );
+    }
+
     const response = await fetch(
       'https://api.groq.com/openai/v1/chat/completions',
       {
@@ -61,14 +70,14 @@ export class TransactionsService {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.2-11b-vision-preview',
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
           messages: [
             {
               role: 'user',
               content: [
                 {
                   type: 'text',
-                  text: 'Extrae los datos de este ticket/comprobante. Devuelve SOLO un JSON válido con estos campos: amount (numero, el total), category (string: "Comida", "Transporte", "Supermercado", "Servicios", "Salud", "Entretenimiento", "Ropa", "Otro"), note (string: descripción breve), date (YYYY-MM-DD, la fecha del ticket o hoy si no aparece), type ("EXPENSE"). Sin texto adicional, solo el JSON.',
+                  text: 'Extrae los datos de este ticket/comprobante. Solo necesito el TOTAL FINAL a pagar, la fecha de la transacción, una categoría general y el nombre del lugar/establecimiento. Ignora completamente el desglose de items individuales; este ticket representa UN SOLO movimiento. Devuelve SOLO un JSON válido con: amount (número, el total final), category (string: "Comida", "Transporte", "Supermercado", "Servicios", "Salud", "Entretenimiento", "Ropa", "Otro"), note (string: nombre del lugar/establecimiento), date (YYYY-MM-DD, la fecha del ticket o hoy si no aparece), type ("EXPENSE"). Sin texto adicional, solo el JSON.',
                 },
                 { type: 'image_url', image_url: { url: image } },
               ],
