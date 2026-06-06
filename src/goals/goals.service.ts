@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
@@ -61,6 +61,21 @@ export class GoalsService {
     return this.prisma.goal.update({
       where: { id },
       data: { currentAmount: { increment: amount } },
+    });
+  }
+
+  async withdrawSavings(id: string, userId: string, amount: number) {
+    if (amount <= 0) {
+      throw new BadRequestException('El monto a retirar debe ser mayor a 0');
+    }
+    const goal = await this.findOne(id, userId);
+    if (Number(goal.currentAmount) < amount) {
+      throw new BadRequestException('No hay suficiente ahorro para retirar');
+    }
+
+    return this.prisma.goal.update({
+      where: { id },
+      data: { currentAmount: { decrement: amount } },
     });
   }
 

@@ -25,15 +25,27 @@ export class TransactionsService {
     }
   }
 
-  async findAll(userId: string, type?: string, category?: string) {
+  async findAll(
+    userId: string,
+    type?: string,
+    category?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+  ) {
     const where: Prisma.TransactionWhereInput = { userId };
     if (type) where.type = type;
     if (category) where.category = category;
 
-    return this.prisma.transaction.findMany({
-      where,
-      orderBy: { date: 'desc' },
-    });
+    const orderBy: Prisma.TransactionOrderByWithRelationInput = {};
+    if (sortBy === 'amount') {
+      orderBy.amount = sortOrder || 'desc';
+    } else if (sortBy === 'date') {
+      orderBy.date = sortOrder || 'desc';
+    } else {
+      orderBy.date = 'desc';
+    }
+
+    return this.prisma.transaction.findMany({ where, orderBy });
   }
 
   async findOne(id: string, userId: string) {

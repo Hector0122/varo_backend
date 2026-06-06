@@ -45,6 +45,15 @@ export class GoalsController {
     return this.goalsService.addSavings(id, req.user.id, dto.amount);
   }
 
+  @Post(':id/withdraw-savings')
+  withdrawSavings(
+    @Req() req: RequestWithUser,
+    @Param('id') id: string,
+    @Body() dto: AddSavingsDto,
+  ) {
+    return this.goalsService.withdrawSavings(id, req.user.id, dto.amount);
+  }
+
   @Patch(':id')
   update(
     @Req() req: RequestWithUser,

@@ -27,8 +27,10 @@ export class TransactionsController {
     @Req() req: RequestWithUser,
     @Query('type') type?: string,
     @Query('category') category?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
-    return this.transactionsService.findAll(req.user.id, type, category);
+    return this.transactionsService.findAll(req.user.id, type, category, sortBy, sortOrder);
   }
 
   @Post()
