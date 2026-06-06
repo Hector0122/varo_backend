@@ -16,9 +16,9 @@ API RESTful para la aplicación de seguimiento financiero Varo. Construida con N
 ## Módulos
 
 - **Auth** (`src/auth/`) — Registro, login, refresh tokens JWT
-- **Transactions** (`src/transactions/`) — CRUD de movimientos + scan de tickets con Groq Vision
+- **Transactions** (`src/transactions/`) — CRUD de movimientos + scan de tickets con Groq Vision + filtros por tipo/categoría y sort por fecha/monto
 - **Categories** (`src/categories/`) — CRUD de categorías personalizadas por usuario
-- **Goals** (`src/goals/`) — Metas de ahorro con asignación porcentual
+- **Goals** (`src/goals/`) — Metas de ahorro con asignación porcentual, agregar y retirar ahorro
 - **Forecast** (`src/forecast/`) — Motor de predicción de cumplimiento de metas
 
 ## API Endpoints
@@ -29,7 +29,7 @@ API RESTful para la aplicación de seguimiento financiero Varo. Construida con N
 - `POST /auth/refresh` — Refrescar access token
 
 ### Transactions
-- `GET /transactions` — Listar movimientos (filtros: `type`, `category`)
+- `GET /transactions` — Listar movimientos (filtros: `type`, `category`; sort: `sortBy`=`date`|`amount`, `sortOrder`=`asc`|`desc`)
 - `POST /transactions` — Crear movimiento
 - `POST /transactions/scan-receipt` — Escanear ticket con Groq Vision
 - `PATCH /transactions/:id` — Actualizar movimiento
@@ -46,6 +46,7 @@ API RESTful para la aplicación de seguimiento financiero Varo. Construida con N
 - `GET /goals/:id` — Ver meta
 - `POST /goals` — Crear meta
 - `POST /goals/:id/add-savings` — Agregar ahorro a meta
+- `POST /goals/:id/withdraw-savings` — Retirar ahorro de meta
 - `PATCH /goals/:id` — Actualizar meta
 - `DELETE /goals/:id` — Eliminar meta
 

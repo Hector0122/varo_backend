@@ -78,6 +78,34 @@
 - [x] **Fix: Categories loading** — Agregado `isError` + `ErrorMessage` + `LoadingScreen`
 - [x] **API_BASE_URL** — Cambiado a IP local para dispositivo físico (`http://172.22.144.247:3000`)
 
+### Backend (continuación)
+- [x] **Filters + Sort en Transactions** — `GET /transactions` ahora acepta:
+  - `type` (`INCOME`/`EXPENSE`) — filtra por tipo
+  - `category` — filtra por categoría exacta
+  - `sortBy` (`date`/`amount`) — columna de ordenamiento
+  - `sortOrder` (`asc`/`desc`) — dirección del orden
+- [x] **Withdraw Savings** — `POST /goals/:id/withdraw-savings`:
+  - Decrementa `currentAmount` de la meta
+  - Valida `amount > 0` y que `currentAmount - amount >= 0`
+  - Retorna la meta actualizada
+
+### Frontend (continuación)
+- [x] **Filter chips en TransactionsScreen** — Chips para filtrar por tipo (Todos/Ingresos/Gastos) y por categoría
+- [x] **Sort buttons en TransactionsScreen** — Botones para ordenar por Fecha o Monto, con flechas ascendente/descendente
+- [x] **Retirar ahorro en GoalDetailScreen** — Sección "Retirar ahorro" con input y botón, validación local contra monto actual
+
+## Completado (Sesión 2026-06-06 — Widget Android)
+
+### Frontend
+- [x] **Android Widget nativo** — Muestra la meta principal en la pantalla de inicio del dispositivo
+  - Dependencia `react-native-android-widget` agregada
+  - `src/widget/GoalWidget.tsx` — Componente JSX con `FlexWidget`/`TextWidget` (nombre, días restantes en amarillo grande, fecha estimada)
+  - `src/widget/GoalWidgetTaskHandler.tsx` — Headless JS task que lee de AsyncStorage y renderiza el widget cuando Android lo solicita (primer agregado/resize)
+  - `android/app/src/main/res/xml/widgetprovider_goal.xml` — Configuración del widget (250×110dp, resize horizontal/vertical)
+  - `android/app/src/main/java/com/varo_frontend/widget/GoalWidget.java` — Receiver que extiende `RNWidgetProvider`
+  - `AndroidManifest.xml` — receiver + service registrados
+- [x] **Dashboard actualizado** — Guarda meta+forecast en AsyncStorage y llama `requestWidgetUpdate` al cargar datos
+
 ## Stack Actualizado
 
 | Capa | Tecnología | Versión |
