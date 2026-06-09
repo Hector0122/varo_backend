@@ -8,6 +8,7 @@ import { GoalsModule } from './goals/goals.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { ForecastModule } from './forecast/forecast.module';
 import { CategoriesModule } from './categories/categories.module';
+import { DebtModule } from './debt/debt.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { CategoriesModule } from './categories/categories.module';
     GoalsModule,
     ForecastModule,
     CategoriesModule,
+    DebtModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -16,6 +16,7 @@ model User {
   transactions Transaction[]
   goals        Goal[]
   categories   Category[]
+  debts Debt[]
 }
 
 model Transaction {
@@ -63,4 +64,27 @@ model ForecastSnapshot {
   createdAt       DateTime @default(now())
 
   goal Goal @relation(fields: [goalId], references: [id])
+}
+
+model Debt {
+  id            String   @id @default(uuid())
+  userId        String
+  name          String
+  totalAmount   Decimal
+  currentAmount Decimal  @default(0)
+  dueDate       DateTime?
+  createdAt     DateTime @default(now())
+
+  user     User          @relation(fields: [userId], references: [id])
+  payments DebtPayment[]
+}
+
+model DebtPayment {
+  id        String   @id @default(uuid())
+  debtId    String
+  amount    Decimal
+  type      String   // 'PAYMENT' or 'INCREASE'
+  createdAt DateTime @default(now())
+
+  debt Debt @relation(fields: [debtId], references: [id])
 }
