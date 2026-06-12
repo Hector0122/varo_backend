@@ -8,8 +8,10 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequestWithUser } from '../types/request-with-user';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -55,5 +57,17 @@ export class TransactionsController {
   @Delete(':id')
   remove(@Req() req: RequestWithUser, @Param('id') id: string) {
     return this.transactionsService.remove(id, req.user.id);
+  }
+
+  @Get('export/csv')
+  async exportCsv(@Req() req: RequestWithUser, @Res() res: Response) {
+    const csv = await this.transactionsService.exportToCsv(req.user.id);
+    const date = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="varo-transacciones-${date}.csv"`,
+    );
+    res.send(csv);
   }
 }

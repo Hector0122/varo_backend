@@ -19,6 +19,7 @@ API RESTful para la aplicación de seguimiento financiero Varo. Construida con N
 - **Transactions** (`src/transactions/`) — CRUD de movimientos + scan de tickets con Groq Vision + filtros por tipo/categoría y sort por fecha/monto
 - **Categories** (`src/categories/`) — CRUD de categorías personalizadas por usuario
 - **Goals** (`src/goals/`) — Metas de ahorro con asignación porcentual, agregar y retirar ahorro
+- **Debt** (`src/debt/`) — Gestión de deudas con pagos, aumentos e historial de movimientos
 - **Forecast** (`src/forecast/`) — Motor de predicción de cumplimiento de metas
 
 ## API Endpoints
@@ -34,6 +35,7 @@ API RESTful para la aplicación de seguimiento financiero Varo. Construida con N
 - `POST /transactions/scan-receipt` — Escanear ticket con Groq Vision
 - `PATCH /transactions/:id` — Actualizar movimiento
 - `DELETE /transactions/:id` — Eliminar movimiento
+- `GET /transactions/export/csv` — Exportar movimientos a CSV (descarga de archivo)
 
 ### Categories
 - `GET /categories` — Listar categorías (filtro: `type`)
@@ -49,6 +51,23 @@ API RESTful para la aplicación de seguimiento financiero Varo. Construida con N
 - `POST /goals/:id/withdraw-savings` — Retirar ahorro de meta
 - `PATCH /goals/:id` — Actualizar meta
 - `DELETE /goals/:id` — Eliminar meta
+
+### Debt
+- `GET /debts` — Listar deudas
+- `GET /debts/:id` — Ver deuda
+- `POST /debts` — Crear deuda
+- `POST /debts/:id/pay` — Registrar pago
+- `POST /debts/:id/add` — Aumentar deuda
+- `GET /debts/:id/payments` — Historial de pagos/incrementos
+- `PATCH /debts/:id` — Actualizar deuda
+- `DELETE /debts/:id` — Eliminar deuda
+
+### Recurring Transactions
+- `GET /recurring-transactions` — Listar transacciones recurrentes
+- `GET /recurring-transactions/:id` — Ver transacción recurrente
+- `POST /recurring-transactions` — Crear transacción recurrente
+- `PATCH /recurring-transactions/:id` — Actualizar transacción recurrente
+- `DELETE /recurring-transactions/:id` — Eliminar transacción recurrente
 
 ### Forecast
 - `GET /forecast/:goalId` — Calcular forecast para una meta

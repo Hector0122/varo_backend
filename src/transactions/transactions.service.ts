@@ -166,4 +166,37 @@ export class TransactionsService {
     await this.recalculateForecasts(userId);
     return tx;
   }
+
+  async exportToCsv(userId: string) {
+    const transactions = await this.prisma.transaction.findMany({
+      where: { userId },
+      orderBy: { date: 'desc' },
+    });
+
+    const headers = ['Fecha', 'Tipo', 'Categoria', 'Monto', 'Nota'];
+    const rows = transactions.map((t) => [
+      t.date.toISOString().split('T')[0],
+      t.type,
+      t.category,
+      t.amount.toString(),
+      t.note ?? '',
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...rows.map((row) =>
+        row
+          .map((cell) => {
+            const escaped = String(cell).replace(/"/g, '""');
+            if (escaped.includes(',') || escaped.includes('\n') || escaped.includes('"')) {
+              return `"${escaped}"`;
+            }
+            return escaped;
+          })
+          .join(','),
+      ),
+    ].join('\n');
+
+    return csv;
+  }
 }

@@ -17,6 +17,7 @@ model User {
   goals        Goal[]
   categories   Category[]
   debts Debt[]
+  recurringTransactions RecurringTransaction[]
 }
 
 model Transaction {
@@ -87,4 +88,21 @@ model DebtPayment {
   createdAt DateTime @default(now())
 
   debt Debt @relation(fields: [debtId], references: [id])
+}
+
+model RecurringTransaction {
+  id              String   @id @default(uuid())
+  userId          String
+  amount          Decimal
+  type            String   // 'INCOME' or 'EXPENSE'
+  category        String
+  note            String?
+  frequency       String   // 'DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'YEARLY'
+  startDate       DateTime
+  endDate         DateTime?
+  lastGeneratedAt DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }

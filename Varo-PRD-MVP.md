@@ -106,6 +106,37 @@
   - `AndroidManifest.xml` — receiver + service registrados
 - [x] **Dashboard actualizado** — Guarda meta+forecast en AsyncStorage y llama `requestWidgetUpdate` al cargar datos
 
+## Módulo de Deudas (Implementado)
+
+Un módulo completo de gestión de deudas existe en backend y frontend pero no fue documentado en sesiones anteriores.
+
+### Backend (`src/debt/`)
+
+- **Modelo Prisma**: `Debt` + `DebtPayment`
+- **CRUD completo**: `GET /debts`, `POST /debts`, `PATCH /debts/:id`, `DELETE /debts/:id`
+- **Pagos**: `POST /debts/:id/pay` — registra un pago y decrementa `currentAmount`
+- **Aumento**: `POST /debts/:id/add` — registra un incremento de deuda y aumenta `currentAmount` + `totalAmount`
+- **Historial**: `GET /debts/:id/payments` — lista todos los pagos/incrementos de una deuda
+- **Validación**: No se puede pagar más del saldo pendiente
+
+### Frontend
+
+- **DebtCard**: Tarjeta resumen con barra de progreso y saldo restante
+- **DebtDetailScreen**: Progreso, pagar, aumentar, ver historial de pagos, eliminar
+- **DebtPaymentHistoryModal**: Modal con lista de pagos/incrementos
+- **DashboardScreen**: Lista de deudas activas + botón crear deuda
+
+### Diferencia con Metas
+
+| Aspecto | Meta (Goal) | Deuda (Debt) |
+|---------|-------------|--------------|
+| Dirección | 0 → objetivo | saldo pendiente → 0 |
+| Progreso | % acumulado | % pagado |
+| Forecast | Fecha estimada de logro | Fecha estimada de liquidación |
+| Ahorro | Agregar ahorro | Realizar pago |
+
+---
+
 ## Stack Actualizado
 
 | Capa | Tecnología | Versión |
@@ -123,6 +154,39 @@
 | HTTP | Axios | 1.x |
 | Image Picker | react-native-image-picker | - |
 | Deploy Backend | Railway | - |
+
+## Features Futuros (Roadmap)
+
+Los siguientes features están documentados como posibles evoluciones pero no están implementados:
+
+### What-if / Insights inteligentes
+- Mostrar en detalle de meta: "Si reduces gastos en Comida $500/mes, llegarías 2 meses antes"
+- Requiere: análisis de gastos por categoría + simulación de forecast
+
+### Gráficos / Historial visual
+- Donut de gastos por categoría
+- Línea de evolución de ahorro neto mensual
+- Comparativa mes actual vs. anterior
+
+### Notificaciones push
+- Hitos de meta (25%, 50%, 75%)
+- Alerta de gasto alto vs. promedio
+- Recordatorio de registrar movimientos
+
+### Presupuestos mensuales por categoría
+- Definir límite mensual por categoría
+- Barra de progreso en dashboard
+- Alerta al acercarse al límite
+
+### iOS Widget
+- Paridad con widget Android existente
+- Requiere implementación nativa con WidgetKit
+
+### FinancialObjective V2
+- Unificar `Goal` y `Debt` en un solo modelo `FinancialObjective` con tipos `SAVING_GOAL` y `DEBT_PAYOFF`
+- Compartir motor de forecast entre ambos
+
+---
 
 ## Notas Técnicas
 
