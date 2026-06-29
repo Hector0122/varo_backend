@@ -65,6 +65,7 @@ export class DebtService {
         debtId: id,
         amount: dto.amount,
         type: 'PAYMENT',
+        ...(dto.note && { note: dto.note }),
       },
     });
     return this.prisma.debt.update({
@@ -75,11 +76,16 @@ export class DebtService {
 
   async addAmount(id: string, userId: string, dto: AddAmountDto) {
     await this.findOne(id, userId);
+    const installments = dto.installments ?? 1;
+    const purchaseDate = new Date();
     await this.prisma.debtPayment.create({
       data: {
         debtId: id,
         amount: dto.amount,
         type: 'INCREASE',
+        ...(dto.note && { note: dto.note }),
+        installments,
+        purchaseDate,
       },
     });
     return this.prisma.debt.update({
@@ -89,6 +95,53 @@ export class DebtService {
         totalAmount: { increment: dto.amount },
       },
     });
+  }
+
+  async getMonthlySpending(userId: string) {
+    const debts = await this.prisma.debt.findMany({ where: { userId } });
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const results: { debtId: string; monthlySpending: number }[] = [];
+
+    for (const debt of debts) {
+      const payments = await this.prisma.debtPayment.findMany({
+        where: { debtId: debt.id, type: 'INCREASE' },
+      });
+
+      let monthlySpending = 0;
+
+      for (const p of payments) {
+        const installments = p.installments ?? 1;
+        const purchaseDate = p.purchaseDate
+          ? new Date(p.purchaseDate)
+          : new Date(p.createdAt);
+
+        const purchaseYear = purchaseDate.getFullYear();
+        const purchaseMonth = purchaseDate.getMonth();
+
+        if (installments === 1) {
+          if (purchaseYear === currentYear && purchaseMonth === currentMonth) {
+            monthlySpending += Number(p.amount);
+          }
+        } else {
+          const portion = Number(p.amount) / installments;
+          for (let m = 0; m < installments; m++) {
+            const month = (purchaseMonth + m) % 12;
+            const year = purchaseYear + Math.floor((purchaseMonth + m) / 12);
+            if (year === currentYear && month === currentMonth) {
+              monthlySpending += portion;
+            }
+          }
+        }
+      }
+
+      // Round to avoid floating point issues
+      results.push({ debtId: debt.id, monthlySpending: Math.round(monthlySpending * 100) / 100 });
+    }
+
+    return results;
   }
 
   async getPayments(debtId: string, userId: string) {

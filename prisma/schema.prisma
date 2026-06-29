@@ -81,11 +81,14 @@ model Debt {
 }
 
 model DebtPayment {
-  id        String   @id @default(uuid())
-  debtId    String
-  amount    Decimal
-  type      String   // 'PAYMENT' or 'INCREASE'
-  createdAt DateTime @default(now())
+  id            String   @id @default(uuid())
+  debtId        String
+  amount        Decimal
+  type          String   // 'PAYMENT' or 'INCREASE'
+  note          String?
+  installments  Int      @default(1)
+  purchaseDate  DateTime @default(now())
+  createdAt     DateTime @default(now())
 
   debt Debt @relation(fields: [debtId], references: [id])
 }

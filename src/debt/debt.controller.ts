@@ -73,4 +73,9 @@ export class DebtController {
   getPayments(@Req() req: RequestWithUser, @Param('id') id: string) {
     return this.debtService.getPayments(id, req.user.id);
   }
+
+  @Get('spending/monthly')
+  getMonthlySpending(@Req() req: RequestWithUser) {
+    return this.debtService.getMonthlySpending(req.user.id);
+  }
 }
