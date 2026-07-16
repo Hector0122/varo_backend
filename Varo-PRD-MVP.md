@@ -183,8 +183,41 @@ Los siguientes features están documentados como posibles evoluciones pero no es
 - Requiere implementación nativa con WidgetKit
 
 ### FinancialObjective V2
+
+Problema: `Goal` y `Debt` se modelan por separado aunque comparten el mismo motor de forecast. Tienen progreso inverso (Meta: `0 → objetivo`; Deuda: `saldo pendiente → 0`), lo cual genera duplicación de lógica de cálculo.
+
 - Unificar `Goal` y `Debt` en un solo modelo `FinancialObjective` con tipos `SAVING_GOAL` y `DEBT_PAYOFF`
-- Compartir motor de forecast entre ambos
+- Compartir motor de forecast entre ambos: `remaining = targetAmount - currentAmount` (SAVING_GOAL) vs. `remaining = currentAmount` (DEBT_PAYOFF)
+- Cuando una deuda llegue a cero, mostrar el monto mensual liberado y recalcular automáticamente el forecast de las metas activas
+
+Diseño propuesto:
+
+```prisma
+enum FinancialObjectiveType {
+  SAVING_GOAL
+  DEBT_PAYOFF
+}
+
+model FinancialObjective {
+  id            String   @id @default(uuid())
+  userId        String
+  name          String
+  type          FinancialObjectiveType
+  targetAmount  Decimal
+  currentAmount Decimal
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+}
+```
+
+`Transaction` ganaría una referencia opcional `objectiveId` / `objective FinancialObjective?`.
+
+Endpoints nuevos: `GET/POST/PATCH/DELETE /objectives`, `GET /objectives/:id/forecast`.
+
+Migración en 3 fases: (1) mantener `Goal` como está, (2) migrar `Goal` → `FinancialObjective(type=SAVING_GOAL)` sin romper consumidores, (3) eliminar `Goal`. No iniciada.
 
 ---
 
