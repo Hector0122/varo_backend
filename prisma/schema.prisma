@@ -74,6 +74,7 @@ model Debt {
   totalAmount   Decimal
   currentAmount Decimal  @default(0)
   dueDate       DateTime?
+  statementDay  Int      @default(1)
   createdAt     DateTime @default(now())
 
   user     User          @relation(fields: [userId], references: [id])

@@ -1,9 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDebtDto } from './dto/create-debt.dto';
 import { UpdateDebtDto } from './dto/update-debt.dto';
 import { MakePaymentDto } from './dto/make-payment.dto';
 import { AddAmountDto } from './dto/add-amount.dto';
+import {
+  addCycles,
+  getBillingCycleStart,
+  getCurrentBillingPeriod,
+} from './billing-cycle.util';
 
 @Injectable()
 export class DebtService {
@@ -30,6 +39,9 @@ export class DebtService {
         totalAmount: dto.totalAmount,
         currentAmount: dto.currentAmount ?? dto.totalAmount,
         dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+        ...(dto.statementDay !== undefined && {
+          statementDay: dto.statementDay,
+        }),
       },
     });
   }
@@ -41,8 +53,15 @@ export class DebtService {
       data: {
         ...(dto.name && { name: dto.name }),
         ...(dto.totalAmount !== undefined && { totalAmount: dto.totalAmount }),
-        ...(dto.currentAmount !== undefined && { currentAmount: dto.currentAmount }),
-        ...(dto.dueDate !== undefined && { dueDate: dto.dueDate ? new Date(dto.dueDate) : null }),
+        ...(dto.currentAmount !== undefined && {
+          currentAmount: dto.currentAmount,
+        }),
+        ...(dto.dueDate !== undefined && {
+          dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+        }),
+        ...(dto.statementDay !== undefined && {
+          statementDay: dto.statementDay,
+        }),
       },
     });
   }
@@ -100,12 +119,20 @@ export class DebtService {
   async getMonthlySpending(userId: string) {
     const debts = await this.prisma.debt.findMany({ where: { userId } });
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
 
-    const results: { debtId: string; monthlySpending: number }[] = [];
+    const results: {
+      debtId: string;
+      monthlySpending: number;
+      periodStart: Date;
+      periodEnd: Date;
+    }[] = [];
 
     for (const debt of debts) {
+      const { periodStart, periodEnd } = getCurrentBillingPeriod(
+        debt.statementDay,
+        now,
+      );
+
       const payments = await this.prisma.debtPayment.findMany({
         where: { debtId: debt.id, type: 'INCREASE' },
       });
@@ -117,20 +144,20 @@ export class DebtService {
         const purchaseDate = p.purchaseDate
           ? new Date(p.purchaseDate)
           : new Date(p.createdAt);
-
-        const purchaseYear = purchaseDate.getFullYear();
-        const purchaseMonth = purchaseDate.getMonth();
+        const firstCycleStart = getBillingCycleStart(
+          purchaseDate,
+          debt.statementDay,
+        );
 
         if (installments === 1) {
-          if (purchaseYear === currentYear && purchaseMonth === currentMonth) {
+          if (firstCycleStart.getTime() === periodStart.getTime()) {
             monthlySpending += Number(p.amount);
           }
         } else {
           const portion = Number(p.amount) / installments;
           for (let m = 0; m < installments; m++) {
-            const month = (purchaseMonth + m) % 12;
-            const year = purchaseYear + Math.floor((purchaseMonth + m) / 12);
-            if (year === currentYear && month === currentMonth) {
+            const cycleStart = addCycles(firstCycleStart, m, debt.statementDay);
+            if (cycleStart.getTime() === periodStart.getTime()) {
               monthlySpending += portion;
             }
           }
@@ -138,7 +165,12 @@ export class DebtService {
       }
 
       // Round to avoid floating point issues
-      results.push({ debtId: debt.id, monthlySpending: Math.round(monthlySpending * 100) / 100 });
+      results.push({
+        debtId: debt.id,
+        monthlySpending: Math.round(monthlySpending * 100) / 100,
+        periodStart,
+        periodEnd,
+      });
     }
 
     return results;
