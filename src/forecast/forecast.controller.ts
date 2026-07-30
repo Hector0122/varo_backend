@@ -15,12 +15,4 @@ export class ForecastController {
   ) {
     return this.forecastService.computeForecast(goalId, req.user.id);
   }
-
-  @Get(':goalId/history')
-  async getHistory(
-    @Param('goalId') goalId: string,
-    @Req() req: RequestWithUser,
-  ) {
-    return this.forecastService.getSnapshots(goalId, req.user.id);
-  }
 }

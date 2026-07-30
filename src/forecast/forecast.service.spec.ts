@@ -116,24 +116,4 @@ describe('ForecastService', () => {
       expect(result.trend).toBe('stable');
     });
   });
-
-  describe('getSnapshots', () => {
-    it('should throw NotFoundException if goal not found', async () => {
-      prisma.goal.findFirst.mockResolvedValue(null);
-      await expect(service.getSnapshots('1', 'user1')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('should return snapshots for goal', async () => {
-      prisma.goal.findFirst.mockResolvedValue({ id: '1' });
-      prisma.forecastSnapshot.findMany.mockResolvedValue([
-        { id: 's1', goalId: '1', confidenceScore: 0.9 },
-      ]);
-
-      const result = await service.getSnapshots('1', 'user1');
-      expect(result).toHaveLength(1);
-      expect(result[0].confidenceScore).toBe(0.9);
-    });
-  });
 });

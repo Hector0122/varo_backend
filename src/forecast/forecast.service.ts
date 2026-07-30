@@ -171,18 +171,4 @@ export class ForecastService {
       }
     }
   }
-
-  async getSnapshots(goalId: string, userId: string) {
-    const goal = await this.prisma.goal.findFirst({
-      where: { id: goalId, userId },
-    });
-    if (!goal) {
-      throw new NotFoundException('Goal not found');
-    }
-
-    return this.prisma.forecastSnapshot.findMany({
-      where: { goalId },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
 }
