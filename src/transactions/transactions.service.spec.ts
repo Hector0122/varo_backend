@@ -227,7 +227,7 @@ describe('TransactionsService - linked transaction sync', () => {
       });
       prisma.transaction.update.mockResolvedValue({ id: 'tx1', amount: 120 });
 
-      await service.update('tx1', 'user1', { amount: 120 } as any);
+      await service.update('tx1', 'user1', { amount: 120 });
 
       expect(prisma.debtPayment.update).toHaveBeenCalledWith({
         where: { id: 'pay1' },
@@ -256,7 +256,7 @@ describe('TransactionsService - linked transaction sync', () => {
       });
       prisma.transaction.update.mockResolvedValue({ id: 'tx1', amount: 100 });
 
-      await service.update('tx1', 'user1', { note: 'updated note' } as any);
+      await service.update('tx1', 'user1', { note: 'updated note' });
 
       expect(prisma.debtPayment.update).not.toHaveBeenCalled();
       expect(prisma.debt.update).not.toHaveBeenCalled();

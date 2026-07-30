@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ForecastService } from '../forecast/forecast.service';
 import { SYSTEM_CATEGORIES } from '../categories/system-categories.constant';
+import { parseDateInput } from '../common/date.util';
 import { CreateDebtDto } from './dto/create-debt.dto';
 import { UpdateDebtDto } from './dto/update-debt.dto';
 import { MakePaymentDto } from './dto/make-payment.dto';
@@ -85,6 +86,8 @@ export class DebtService {
       );
     }
 
+    const date = dto.date ? parseDateInput(dto.date) : new Date();
+
     const updatedDebt = await this.prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.create({
         data: {
@@ -93,7 +96,7 @@ export class DebtService {
           type: 'EXPENSE',
           category: SYSTEM_CATEGORIES.DEBT_PAYMENT,
           note: dto.note ?? `Pago: ${debt.name}`,
-          date: new Date(),
+          date,
         },
       });
       await tx.debtPayment.create({
@@ -102,6 +105,7 @@ export class DebtService {
           amount: dto.amount,
           type: 'PAYMENT',
           ...(dto.note && { note: dto.note }),
+          purchaseDate: date,
           transactionId: transaction.id,
         },
       });
@@ -118,7 +122,7 @@ export class DebtService {
   async addAmount(id: string, userId: string, dto: AddAmountDto) {
     await this.findOne(id, userId);
     const installments = dto.installments ?? 1;
-    const purchaseDate = new Date();
+    const purchaseDate = dto.date ? parseDateInput(dto.date) : new Date();
     await this.prisma.debtPayment.create({
       data: {
         debtId: id,

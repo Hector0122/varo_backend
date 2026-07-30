@@ -2,11 +2,11 @@ import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class CreateGoalDto {
   @IsString()
-  name: string;
+  name!: string;
 
   @IsNumber()
   @Min(0.01)
-  targetAmount: number;
+  targetAmount!: number;
 
   @IsOptional()
   @IsNumber()

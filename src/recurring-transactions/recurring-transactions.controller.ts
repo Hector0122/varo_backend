@@ -31,7 +31,10 @@ export class RecurringTransactionsController {
   }
 
   @Post()
-  create(@Req() req: RequestWithUser, @Body() dto: CreateRecurringTransactionDto) {
+  create(
+    @Req() req: RequestWithUser,
+    @Body() dto: CreateRecurringTransactionDto,
+  ) {
     return this.service.create(req.user.id, dto);
   }
 

@@ -53,7 +53,9 @@ export class RecurringTransactionsService {
         ...(dto.note !== undefined && { note: dto.note }),
         ...(dto.frequency && { frequency: dto.frequency }),
         ...(dto.startDate && { startDate: new Date(dto.startDate) }),
-        ...(dto.endDate !== undefined && { endDate: dto.endDate ? new Date(dto.endDate) : null }),
+        ...(dto.endDate !== undefined && {
+          endDate: dto.endDate ? new Date(dto.endDate) : null,
+        }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });

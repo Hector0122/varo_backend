@@ -10,11 +10,11 @@ import {
 
 export class CreateDebtDto {
   @IsString()
-  name: string;
+  name!: string;
 
   @IsNumber()
   @Min(0.01)
-  totalAmount: number;
+  totalAmount!: number;
 
   @IsOptional()
   @IsNumber()

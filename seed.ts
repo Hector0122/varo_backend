@@ -33,7 +33,9 @@ async function main() {
     console.log('Usuario ya existe:', email);
   }
 
-  const existingCategories = await prisma.category.count({ where: { userId: user.id } });
+  const existingCategories = await prisma.category.count({
+    where: { userId: user.id },
+  });
   if (existingCategories === 0) {
     await prisma.category.createMany({
       data: DEFAULT_CATEGORIES.map((cat) => ({ ...cat, userId: user.id })),

@@ -60,7 +60,7 @@ describe('DebtService - linked transactions', () => {
 
       const result = await service.makePayment('debt1', 'user1', {
         amount: 100,
-      } as any);
+      });
 
       expect(prisma.transaction.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -97,7 +97,7 @@ describe('DebtService - linked transactions', () => {
       });
 
       await expect(
-        service.makePayment('debt1', 'user1', { amount: 100 } as any),
+        service.makePayment('debt1', 'user1', { amount: 100 }),
       ).rejects.toThrow(BadRequestException);
 
       expect(prisma.transaction.create).not.toHaveBeenCalled();
@@ -118,7 +118,7 @@ describe('DebtService - linked transactions', () => {
         currentAmount: 150,
       });
 
-      await service.addAmount('debt1', 'user1', { amount: 50 } as any);
+      await service.addAmount('debt1', 'user1', { amount: 50 });
 
       expect(prisma.transaction.create).not.toHaveBeenCalled();
       expect(prisma.debtPayment.create).toHaveBeenCalledWith({

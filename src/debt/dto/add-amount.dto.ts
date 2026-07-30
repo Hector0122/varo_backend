@@ -1,9 +1,16 @@
-import { IsNumber, IsOptional, IsString, Min, IsInt } from 'class-validator';
+import {
+  IsDateString,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  IsInt,
+} from 'class-validator';
 
 export class AddAmountDto {
   @IsNumber()
   @Min(0.01)
-  amount: number;
+  amount!: number;
 
   @IsOptional()
   @IsString()
@@ -13,4 +20,8 @@ export class AddAmountDto {
   @IsInt()
   @Min(1)
   installments?: number;
+
+  @IsOptional()
+  @IsDateString()
+  date?: string;
 }

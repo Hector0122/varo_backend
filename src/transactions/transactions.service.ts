@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ForecastService } from '../forecast/forecast.service';
+import { parseDateInput } from '../common/date.util';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
@@ -101,7 +102,9 @@ export class TransactionsService {
       );
     }
 
-    const data: any = await response.json();
+    const data = (await response.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
     const content: string = data.choices?.[0]?.message?.content ?? '';
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -110,7 +113,13 @@ export class TransactionsService {
     }
 
     try {
-      return JSON.parse(jsonMatch[0]);
+      return JSON.parse(jsonMatch[0]) as {
+        amount: number;
+        category: string;
+        note: string;
+        date: string;
+        type: 'EXPENSE';
+      };
     } catch {
       throw new BadRequestException('Error al parsear los datos extraídos');
     }
@@ -124,7 +133,7 @@ export class TransactionsService {
         type: dto.type,
         category: dto.category,
         note: dto.note ?? null,
-        date: new Date(dto.date),
+        date: parseDateInput(dto.date),
       },
     });
     await this.forecastService.recalculateAllForUser(userId);
@@ -176,7 +185,7 @@ export class TransactionsService {
           ...(dto.type && { type: dto.type }),
           ...(dto.category && { category: dto.category }),
           ...(dto.note !== undefined && { note: dto.note }),
-          ...(dto.date && { date: new Date(dto.date) }),
+          ...(dto.date && { date: parseDateInput(dto.date) }),
         },
       });
     });

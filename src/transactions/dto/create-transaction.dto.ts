@@ -10,18 +10,18 @@ import {
 export class CreateTransactionDto {
   @IsNumber()
   @Min(0.01)
-  amount: number;
+  amount!: number;
 
   @IsIn(['INCOME', 'EXPENSE'])
-  type: string;
+  type!: string;
 
   @IsString()
-  category: string;
+  category!: string;
 
   @IsOptional()
   @IsString()
   note?: string;
 
   @IsDateString()
-  date: string;
+  date!: string;
 }

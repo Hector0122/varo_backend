@@ -1,25 +1,32 @@
-import { IsDateString, IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class CreateRecurringTransactionDto {
   @IsNumber()
   @Min(0.01)
-  amount: number;
+  amount!: number;
 
   @IsIn(['INCOME', 'EXPENSE'])
-  type: string;
+  type!: string;
 
   @IsString()
-  category: string;
+  category!: string;
 
   @IsOptional()
   @IsString()
   note?: string;
 
   @IsIn(['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'YEARLY'])
-  frequency: string;
+  frequency!: string;
 
   @IsDateString()
-  startDate: string;
+  startDate!: string;
 
   @IsOptional()
   @IsDateString()
