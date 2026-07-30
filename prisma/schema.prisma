@@ -14,9 +14,8 @@ model User {
   createdAt DateTime @default(now())
 
   transactions Transaction[]
-  goals        Goal[]
+  financialObjectives FinancialObjective[]
   categories   Category[]
-  debts Debt[]
   recurringTransactions RecurringTransaction[]
 }
 
@@ -29,9 +28,8 @@ model Transaction {
   note     String?
   date     DateTime
 
-  user             User               @relation(fields: [userId], references: [id])
-  debtPayment      DebtPayment?
-  goalContribution GoalContribution?
+  user           User            @relation(fields: [userId], references: [id])
+  objectiveEntry ObjectiveEntry?
 }
 
 model Category {
@@ -45,74 +43,53 @@ model Category {
   @@unique([userId, name])
 }
 
-model Goal {
-  id              String   @id @default(uuid())
-  userId          String
-  name            String
-  targetAmount    Decimal
-  currentAmount   Decimal @default(0)
-  savingAllocation Float   @default(100)
-  createdAt       DateTime @default(now())
-
-  user     User               @relation(fields: [userId], references: [id])
-  snapshots ForecastSnapshot[]
-  contributions GoalContribution[]
+enum FinancialObjectiveType {
+  SAVING_GOAL
+  DEBT_PAYOFF
 }
 
-model ForecastSnapshot {
+model FinancialObjective {
+  id               String                 @id @default(uuid())
+  userId           String
+  type             FinancialObjectiveType
+  name             String
+  targetAmount     Decimal
+  currentAmount    Decimal                @default(0)
+  savingAllocation Float? // SAVING_GOAL only
+  dueDate          DateTime? // DEBT_PAYOFF only
+  statementDay     Int? // DEBT_PAYOFF only
+  createdAt        DateTime               @default(now())
+
+  user      User                        @relation(fields: [userId], references: [id])
+  entries   ObjectiveEntry[]
+  snapshots ObjectiveForecastSnapshot[]
+}
+
+model ObjectiveEntry {
+  id           String   @id @default(uuid())
+  objectiveId  String
+  amount       Decimal
+  type         String // 'ADD' | 'WITHDRAW' | 'PAYMENT' | 'INCREASE'
+  note         String?
+  installments Int      @default(1) // DEBT_PAYOFF INCREASE only
+  purchaseDate DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  objective FinancialObjective @relation(fields: [objectiveId], references: [id])
+
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+}
+
+model ObjectiveForecastSnapshot {
   id              String   @id @default(uuid())
-  goalId          String
+  objectiveId     String
   projectedDate   DateTime
-  monthlySaving   Decimal
+  monthlyRate     Decimal
   confidenceScore Float
   createdAt       DateTime @default(now())
 
-  goal Goal @relation(fields: [goalId], references: [id])
-}
-
-model Debt {
-  id            String   @id @default(uuid())
-  userId        String
-  name          String
-  totalAmount   Decimal
-  currentAmount Decimal  @default(0)
-  dueDate       DateTime?
-  statementDay  Int      @default(1)
-  createdAt     DateTime @default(now())
-
-  user     User          @relation(fields: [userId], references: [id])
-  payments DebtPayment[]
-}
-
-model DebtPayment {
-  id            String   @id @default(uuid())
-  debtId        String
-  amount        Decimal
-  type          String   // 'PAYMENT' or 'INCREASE'
-  note          String?
-  installments  Int      @default(1)
-  purchaseDate  DateTime @default(now())
-  createdAt     DateTime @default(now())
-
-  debt Debt @relation(fields: [debtId], references: [id])
-
-  transactionId String?      @unique
-  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
-}
-
-model GoalContribution {
-  id        String   @id @default(uuid())
-  goalId    String
-  amount    Decimal
-  type      String   // 'ADD' or 'WITHDRAW'
-  note      String?
-  date      DateTime @default(now())
-  createdAt DateTime @default(now())
-
-  goal Goal @relation(fields: [goalId], references: [id])
-
-  transactionId String?      @unique
-  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  objective FinancialObjective @relation(fields: [objectiveId], references: [id])
 }
 
 model RecurringTransaction {

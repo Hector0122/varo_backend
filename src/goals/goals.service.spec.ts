@@ -1,34 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { GoalsService } from './goals.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { ForecastService } from '../forecast/forecast.service';
+import { FinancialObjectivesService } from '../financial-objectives/financial-objectives.service';
 import { SYSTEM_CATEGORIES } from '../categories/system-categories.constant';
 
 describe('GoalsService - linked transactions', () => {
   let service: GoalsService;
-  let prisma: any;
+  let objectives: any;
   let forecastService: any;
 
   beforeEach(async () => {
-    prisma = {
-      goal: {
-        findFirst: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-      },
-      goalContribution: {
-        create: jest.fn(),
-        deleteMany: jest.fn(),
-        findMany: jest.fn(),
-      },
-      forecastSnapshot: {
-        deleteMany: jest.fn(),
-      },
-      transaction: {
-        create: jest.fn(),
-      },
-      $transaction: jest.fn((callback: any) => callback(prisma)),
+    objectives = {
+      findAll: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
+      applyEntry: jest.fn(),
+      getEntries: jest.fn(),
     };
 
     forecastService = {
@@ -38,7 +28,7 @@ describe('GoalsService - linked transactions', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GoalsService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: FinancialObjectivesService, useValue: objectives },
         { provide: ForecastService, useValue: forecastService },
       ],
     }).compile();
@@ -51,84 +41,80 @@ describe('GoalsService - linked transactions', () => {
   });
 
   describe('addSavings', () => {
-    it('creates a linked EXPENSE transaction and increments the goal balance', async () => {
-      prisma.goal.findFirst.mockResolvedValue({
+    it('creates a linked EXPENSE entry and increments the goal balance', async () => {
+      objectives.findOne.mockResolvedValue({
         id: 'goal1',
         userId: 'user1',
         name: 'Vacation',
         currentAmount: 200,
       });
-      prisma.transaction.create.mockResolvedValue({ id: 'tx1' });
-      prisma.goal.update.mockResolvedValue({
+      objectives.applyEntry.mockResolvedValue({
         id: 'goal1',
+        userId: 'user1',
+        name: 'Vacation',
         currentAmount: 250,
       });
 
       const result = await service.addSavings('goal1', 'user1', 50);
 
-      expect(prisma.transaction.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(objectives.findOne).toHaveBeenCalledWith(
+        'goal1',
+        'user1',
+        'SAVING_GOAL',
+        'Goal not found',
+      );
+      expect(objectives.applyEntry).toHaveBeenCalledWith(
+        expect.objectContaining({
+          objectiveId: 'goal1',
           userId: 'user1',
           amount: 50,
-          type: 'EXPENSE',
-          category: SYSTEM_CATEGORIES.SAVINGS,
+          entryType: 'ADD',
+          linkedTransaction: expect.objectContaining({
+            type: 'EXPENSE',
+            category: SYSTEM_CATEGORIES.SAVINGS,
+          }),
         }),
-      });
-      expect(prisma.goalContribution.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          goalId: 'goal1',
-          amount: 50,
-          type: 'ADD',
-          transactionId: 'tx1',
-        }),
-      });
-      expect(prisma.goal.update).toHaveBeenCalledWith({
-        where: { id: 'goal1' },
-        data: { currentAmount: { increment: 50 } },
-      });
+      );
       expect(forecastService.recalculateAllForUser).toHaveBeenCalledWith(
         'user1',
       );
-      expect(result).toEqual({ id: 'goal1', currentAmount: 250 });
+      expect(result.currentAmount).toBe(250);
     });
   });
 
   describe('withdrawSavings', () => {
-    it('creates a linked INCOME transaction and decrements the goal balance', async () => {
-      prisma.goal.findFirst.mockResolvedValue({
+    it('creates a linked INCOME entry and decrements the goal balance', async () => {
+      objectives.findOne.mockResolvedValue({
         id: 'goal1',
         userId: 'user1',
         name: 'Vacation',
         currentAmount: 200,
       });
-      prisma.transaction.create.mockResolvedValue({ id: 'tx2' });
-      prisma.goal.update.mockResolvedValue({
+      objectives.applyEntry.mockResolvedValue({
         id: 'goal1',
+        userId: 'user1',
+        name: 'Vacation',
         currentAmount: 170,
       });
 
       await service.withdrawSavings('goal1', 'user1', 30);
 
-      expect(prisma.transaction.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(objectives.applyEntry).toHaveBeenCalledWith(
+        expect.objectContaining({
+          objectiveId: 'goal1',
           userId: 'user1',
           amount: 30,
-          type: 'INCOME',
-          category: SYSTEM_CATEGORIES.SAVINGS,
+          entryType: 'WITHDRAW',
+          linkedTransaction: expect.objectContaining({
+            type: 'INCOME',
+            category: SYSTEM_CATEGORIES.SAVINGS,
+          }),
         }),
-      });
-      expect(prisma.goalContribution.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          goalId: 'goal1',
-          amount: 30,
-          type: 'WITHDRAW',
-          transactionId: 'tx2',
-        }),
-      });
+      );
     });
 
     it('rejects a withdrawal larger than the current savings', async () => {
-      prisma.goal.findFirst.mockResolvedValue({
+      objectives.findOne.mockResolvedValue({
         id: 'goal1',
         userId: 'user1',
         name: 'Vacation',
@@ -139,26 +125,22 @@ describe('GoalsService - linked transactions', () => {
         service.withdrawSavings('goal1', 'user1', 30),
       ).rejects.toThrow(BadRequestException);
 
-      expect(prisma.transaction.create).not.toHaveBeenCalled();
+      expect(objectives.applyEntry).not.toHaveBeenCalled();
     });
   });
 
   describe('remove', () => {
-    it('deletes goal contributions and snapshots before deleting the goal', async () => {
-      prisma.goal.findFirst.mockResolvedValue({ id: 'goal1', userId: 'user1' });
-      prisma.goal.delete.mockResolvedValue({ id: 'goal1' });
+    it('delegates removal (contributions + snapshots + objective) to FinancialObjectivesService', async () => {
+      objectives.remove.mockResolvedValue({ id: 'goal1', userId: 'user1' });
 
       await service.remove('goal1', 'user1');
 
-      expect(prisma.forecastSnapshot.deleteMany).toHaveBeenCalledWith({
-        where: { goalId: 'goal1' },
-      });
-      expect(prisma.goalContribution.deleteMany).toHaveBeenCalledWith({
-        where: { goalId: 'goal1' },
-      });
-      expect(prisma.goal.delete).toHaveBeenCalledWith({
-        where: { id: 'goal1' },
-      });
+      expect(objectives.remove).toHaveBeenCalledWith(
+        'goal1',
+        'user1',
+        'SAVING_GOAL',
+        'Goal not found',
+      );
     });
   });
 });

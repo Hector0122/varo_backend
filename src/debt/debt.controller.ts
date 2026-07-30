@@ -78,4 +78,9 @@ export class DebtController {
   getMonthlySpending(@Req() req: RequestWithUser) {
     return this.debtService.getMonthlySpending(req.user.id);
   }
+
+  @Get(':id/forecast')
+  getForecast(@Req() req: RequestWithUser, @Param('id') id: string) {
+    return this.debtService.getForecast(id, req.user.id);
+  }
 }

@@ -1,10 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { ForecastService } from '../forecast/forecast.service';
+import { FinancialObjectivesService } from '../financial-objectives/financial-objectives.service';
 import { SYSTEM_CATEGORIES } from '../categories/system-categories.constant';
 import { parseDateInput } from '../common/date.util';
 import { CreateDebtDto } from './dto/create-debt.dto';
@@ -17,69 +13,125 @@ import {
   getCurrentBillingPeriod,
 } from './billing-cycle.util';
 
+const NOT_FOUND = 'Debt not found';
+
+interface ObjectiveLike {
+  id: string;
+  userId: string;
+  name: string;
+  targetAmount: unknown;
+  currentAmount: unknown;
+  dueDate: Date | null;
+  statementDay: number | null;
+  createdAt: Date;
+}
+
+interface EntryLike {
+  id: string;
+  objectiveId: string;
+  amount: unknown;
+  type: string;
+  note: string | null;
+  installments: number;
+  purchaseDate: Date;
+  createdAt: Date;
+}
+
 @Injectable()
 export class DebtService {
   constructor(
-    private prisma: PrismaService,
+    private objectives: FinancialObjectivesService,
     private forecastService: ForecastService,
   ) {}
 
+  private toDebt(objective: ObjectiveLike) {
+    return {
+      id: objective.id,
+      userId: objective.userId,
+      name: objective.name,
+      totalAmount: objective.targetAmount,
+      currentAmount: objective.currentAmount,
+      dueDate: objective.dueDate,
+      statementDay: objective.statementDay,
+      createdAt: objective.createdAt,
+    };
+  }
+
+  private toPayment(entry: EntryLike) {
+    return {
+      id: entry.id,
+      debtId: entry.objectiveId,
+      amount: entry.amount,
+      type: entry.type,
+      note: entry.note,
+      installments: entry.installments,
+      purchaseDate: entry.purchaseDate,
+      createdAt: entry.createdAt,
+    };
+  }
+
   async findAll(userId: string) {
-    return this.prisma.debt.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const objectives = await this.objectives.findAll(userId, 'DEBT_PAYOFF');
+    return objectives.map((o) => this.toDebt(o));
   }
 
   async findOne(id: string, userId: string) {
-    const debt = await this.prisma.debt.findFirst({ where: { id, userId } });
-    if (!debt) throw new NotFoundException('Debt not found');
-    return debt;
+    const objective = await this.objectives.findOne(
+      id,
+      userId,
+      'DEBT_PAYOFF',
+      NOT_FOUND,
+    );
+    return this.toDebt(objective);
   }
 
   async create(userId: string, dto: CreateDebtDto) {
-    return this.prisma.debt.create({
-      data: {
-        userId,
-        name: dto.name,
-        totalAmount: dto.totalAmount,
-        currentAmount: dto.currentAmount ?? dto.totalAmount,
-        dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
-        ...(dto.statementDay !== undefined && {
-          statementDay: dto.statementDay,
-        }),
-      },
+    const objective = await this.objectives.create(userId, 'DEBT_PAYOFF', {
+      name: dto.name,
+      targetAmount: dto.totalAmount,
+      currentAmount: dto.currentAmount ?? dto.totalAmount,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+      statementDay: dto.statementDay ?? 1,
     });
+    return this.toDebt(objective);
   }
 
   async update(id: string, userId: string, dto: UpdateDebtDto) {
-    await this.findOne(id, userId);
-    return this.prisma.debt.update({
-      where: { id },
-      data: {
-        ...(dto.name && { name: dto.name }),
-        ...(dto.totalAmount !== undefined && { totalAmount: dto.totalAmount }),
-        ...(dto.currentAmount !== undefined && {
-          currentAmount: dto.currentAmount,
-        }),
+    const objective = await this.objectives.update(
+      id,
+      userId,
+      'DEBT_PAYOFF',
+      NOT_FOUND,
+      {
+        name: dto.name,
+        targetAmount: dto.totalAmount,
+        currentAmount: dto.currentAmount,
         ...(dto.dueDate !== undefined && {
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
         }),
-        ...(dto.statementDay !== undefined && {
-          statementDay: dto.statementDay,
-        }),
+        statementDay: dto.statementDay,
       },
-    });
+    );
+    return this.toDebt(objective);
   }
 
   async remove(id: string, userId: string) {
-    await this.findOne(id, userId);
-    await this.prisma.debtPayment.deleteMany({ where: { debtId: id } });
-    return this.prisma.debt.delete({ where: { id } });
+    const objective = await this.objectives.remove(
+      id,
+      userId,
+      'DEBT_PAYOFF',
+      NOT_FOUND,
+    );
+    return this.toDebt(objective);
   }
 
   async makePayment(id: string, userId: string, dto: MakePaymentDto) {
-    const debt = await this.findOne(id, userId);
+    const debt = await this.objectives.findOne(
+      id,
+      userId,
+      'DEBT_PAYOFF',
+      NOT_FOUND,
+    );
     if (Number(debt.currentAmount) < dto.amount) {
       throw new BadRequestException(
         'El pago no puede ser mayor al saldo pendiente',
@@ -88,62 +140,44 @@ export class DebtService {
 
     const date = dto.date ? parseDateInput(dto.date) : new Date();
 
-    const updatedDebt = await this.prisma.$transaction(async (tx) => {
-      const transaction = await tx.transaction.create({
-        data: {
-          userId,
-          amount: dto.amount,
-          type: 'EXPENSE',
-          category: SYSTEM_CATEGORIES.DEBT_PAYMENT,
-          note: dto.note ?? `Pago: ${debt.name}`,
-          date,
-        },
-      });
-      await tx.debtPayment.create({
-        data: {
-          debtId: id,
-          amount: dto.amount,
-          type: 'PAYMENT',
-          ...(dto.note && { note: dto.note }),
-          purchaseDate: date,
-          transactionId: transaction.id,
-        },
-      });
-      return tx.debt.update({
-        where: { id },
-        data: { currentAmount: { decrement: dto.amount } },
-      });
+    const updated = await this.objectives.applyEntry({
+      objectiveId: id,
+      userId,
+      amount: dto.amount,
+      entryType: 'PAYMENT',
+      note: dto.note,
+      date,
+      linkedTransaction: {
+        type: 'EXPENSE',
+        category: SYSTEM_CATEGORIES.DEBT_PAYMENT,
+        note: dto.note ?? `Pago: ${debt.name}`,
+      },
     });
 
     await this.forecastService.recalculateAllForUser(userId);
-    return updatedDebt;
+    return this.toDebt(updated);
   }
 
   async addAmount(id: string, userId: string, dto: AddAmountDto) {
-    await this.findOne(id, userId);
-    const installments = dto.installments ?? 1;
+    await this.objectives.findOne(id, userId, 'DEBT_PAYOFF', NOT_FOUND);
     const purchaseDate = dto.date ? parseDateInput(dto.date) : new Date();
-    await this.prisma.debtPayment.create({
-      data: {
-        debtId: id,
-        amount: dto.amount,
-        type: 'INCREASE',
-        ...(dto.note && { note: dto.note }),
-        installments,
-        purchaseDate,
-      },
+
+    const updated = await this.objectives.applyEntry({
+      objectiveId: id,
+      userId,
+      amount: dto.amount,
+      entryType: 'INCREASE',
+      note: dto.note,
+      installments: dto.installments ?? 1,
+      date: purchaseDate,
+      incrementTargetAmount: true,
     });
-    return this.prisma.debt.update({
-      where: { id },
-      data: {
-        currentAmount: { increment: dto.amount },
-        totalAmount: { increment: dto.amount },
-      },
-    });
+
+    return this.toDebt(updated);
   }
 
   async getMonthlySpending(userId: string) {
-    const debts = await this.prisma.debt.findMany({ where: { userId } });
+    const debts = await this.objectives.findAll(userId, 'DEBT_PAYOFF');
     const now = new Date();
 
     const results: {
@@ -154,14 +188,13 @@ export class DebtService {
     }[] = [];
 
     for (const debt of debts) {
+      const statementDay = debt.statementDay ?? 1;
       const { periodStart, periodEnd } = getCurrentBillingPeriod(
-        debt.statementDay,
+        statementDay,
         now,
       );
 
-      const payments = await this.prisma.debtPayment.findMany({
-        where: { debtId: debt.id, type: 'INCREASE' },
-      });
+      const payments = await this.objectives.getEntries(debt.id, ['INCREASE']);
 
       let monthlySpending = 0;
 
@@ -172,7 +205,7 @@ export class DebtService {
           : new Date(p.createdAt);
         const firstCycleStart = getBillingCycleStart(
           purchaseDate,
-          debt.statementDay,
+          statementDay,
         );
 
         if (installments === 1) {
@@ -182,7 +215,7 @@ export class DebtService {
         } else {
           const portion = Number(p.amount) / installments;
           for (let m = 0; m < installments; m++) {
-            const cycleStart = addCycles(firstCycleStart, m, debt.statementDay);
+            const cycleStart = addCycles(firstCycleStart, m, statementDay);
             if (cycleStart.getTime() === periodStart.getTime()) {
               monthlySpending += portion;
             }
@@ -203,10 +236,16 @@ export class DebtService {
   }
 
   async getPayments(debtId: string, userId: string) {
-    await this.findOne(debtId, userId);
-    return this.prisma.debtPayment.findMany({
-      where: { debtId },
-      orderBy: { createdAt: 'desc' },
-    });
+    await this.objectives.findOne(debtId, userId, 'DEBT_PAYOFF', NOT_FOUND);
+    const entries = await this.objectives.getEntries(debtId, [
+      'PAYMENT',
+      'INCREASE',
+    ]);
+    return entries.map((e) => this.toPayment(e));
+  }
+
+  async getForecast(id: string, userId: string) {
+    await this.objectives.findOne(id, userId, 'DEBT_PAYOFF', NOT_FOUND);
+    return this.forecastService.computeDebtForecast(id, userId);
   }
 }

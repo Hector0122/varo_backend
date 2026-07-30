@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ForecastService } from '../forecast/forecast.service';
+import { objectiveEntrySign } from '../financial-objectives/financial-objectives.service';
 import { parseDateInput } from '../common/date.util';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
@@ -143,10 +144,10 @@ export class TransactionsService {
   async update(id: string, userId: string, dto: UpdateTransactionDto) {
     const existing = await this.findOne(id, userId);
 
-    const [debtPayment, goalContribution] = await Promise.all([
-      this.prisma.debtPayment.findUnique({ where: { transactionId: id } }),
-      this.prisma.goalContribution.findUnique({ where: { transactionId: id } }),
-    ]);
+    const entry = await this.prisma.objectiveEntry.findUnique({
+      where: { transactionId: id },
+      include: { objective: true },
+    });
 
     const amountChanged =
       dto.amount !== undefined &&
@@ -156,26 +157,15 @@ export class TransactionsService {
       : 0;
 
     const tx = await this.prisma.$transaction(async (txClient) => {
-      if (amountChanged && debtPayment) {
-        await txClient.debtPayment.update({
-          where: { id: debtPayment.id },
+      if (amountChanged && entry) {
+        await txClient.objectiveEntry.update({
+          where: { id: entry.id },
           data: { amount: dto.amount },
         });
-        const balanceDelta = debtPayment.type === 'PAYMENT' ? -delta : delta;
-        await txClient.debt.update({
-          where: { id: debtPayment.debtId },
-          data: { currentAmount: { increment: balanceDelta } },
-        });
-      }
-      if (amountChanged && goalContribution) {
-        await txClient.goalContribution.update({
-          where: { id: goalContribution.id },
-          data: { amount: dto.amount },
-        });
-        const balanceDelta = goalContribution.type === 'ADD' ? delta : -delta;
-        await txClient.goal.update({
-          where: { id: goalContribution.goalId },
-          data: { currentAmount: { increment: balanceDelta } },
+        const sign = objectiveEntrySign(entry.objective.type, entry.type);
+        await txClient.financialObjective.update({
+          where: { id: entry.objectiveId },
+          data: { currentAmount: { increment: sign * delta } },
         });
       }
       return txClient.transaction.update({
@@ -197,33 +187,18 @@ export class TransactionsService {
   async remove(id: string, userId: string) {
     await this.findOne(id, userId);
 
-    const [debtPayment, goalContribution] = await Promise.all([
-      this.prisma.debtPayment.findUnique({ where: { transactionId: id } }),
-      this.prisma.goalContribution.findUnique({ where: { transactionId: id } }),
-    ]);
+    const entry = await this.prisma.objectiveEntry.findUnique({
+      where: { transactionId: id },
+      include: { objective: true },
+    });
 
     const tx = await this.prisma.$transaction(async (txClient) => {
-      if (debtPayment) {
-        await txClient.debtPayment.delete({ where: { id: debtPayment.id } });
-        const balanceDelta =
-          debtPayment.type === 'PAYMENT'
-            ? Number(debtPayment.amount)
-            : -Number(debtPayment.amount);
-        await txClient.debt.update({
-          where: { id: debtPayment.debtId },
-          data: { currentAmount: { increment: balanceDelta } },
-        });
-      }
-      if (goalContribution) {
-        await txClient.goalContribution.delete({
-          where: { id: goalContribution.id },
-        });
-        const balanceDelta =
-          goalContribution.type === 'ADD'
-            ? -Number(goalContribution.amount)
-            : Number(goalContribution.amount);
-        await txClient.goal.update({
-          where: { id: goalContribution.goalId },
+      if (entry) {
+        await txClient.objectiveEntry.delete({ where: { id: entry.id } });
+        const sign = objectiveEntrySign(entry.objective.type, entry.type);
+        const balanceDelta = -sign * Number(entry.amount);
+        await txClient.financialObjective.update({
+          where: { id: entry.objectiveId },
           data: { currentAmount: { increment: balanceDelta } },
         });
       }

@@ -13,9 +13,6 @@ describe('TransactionsService - exportToCsv', () => {
       transaction: {
         findMany: jest.fn(),
       },
-      goal: {
-        findMany: jest.fn(),
-      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -110,20 +107,12 @@ describe('TransactionsService - linked transaction sync', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
-      debtPayment: {
+      objectiveEntry: {
         findUnique: jest.fn().mockResolvedValue(null),
         update: jest.fn(),
         delete: jest.fn(),
       },
-      goalContribution: {
-        findUnique: jest.fn().mockResolvedValue(null),
-        update: jest.fn(),
-        delete: jest.fn(),
-      },
-      debt: {
-        update: jest.fn(),
-      },
-      goal: {
+      financialObjective: {
         update: jest.fn(),
       },
       $transaction: jest.fn((callback: any) => callback(prisma)),
@@ -144,7 +133,7 @@ describe('TransactionsService - linked transaction sync', () => {
   });
 
   describe('remove', () => {
-    it('deletes a plain transaction without touching any debt/goal', async () => {
+    it('deletes a plain transaction without touching any objective', async () => {
       prisma.transaction.findFirst.mockResolvedValue({
         id: 'tx1',
         userId: 'user1',
@@ -154,8 +143,7 @@ describe('TransactionsService - linked transaction sync', () => {
 
       await service.remove('tx1', 'user1');
 
-      expect(prisma.debt.update).not.toHaveBeenCalled();
-      expect(prisma.goal.update).not.toHaveBeenCalled();
+      expect(prisma.financialObjective.update).not.toHaveBeenCalled();
       expect(prisma.transaction.delete).toHaveBeenCalledWith({
         where: { id: 'tx1' },
       });
@@ -167,20 +155,21 @@ describe('TransactionsService - linked transaction sync', () => {
         userId: 'user1',
         amount: 100,
       });
-      prisma.debtPayment.findUnique.mockResolvedValue({
-        id: 'pay1',
-        debtId: 'debt1',
+      prisma.objectiveEntry.findUnique.mockResolvedValue({
+        id: 'entry1',
+        objectiveId: 'debt1',
         amount: 100,
         type: 'PAYMENT',
+        objective: { type: 'DEBT_PAYOFF' },
       });
       prisma.transaction.delete.mockResolvedValue({ id: 'tx1' });
 
       await service.remove('tx1', 'user1');
 
-      expect(prisma.debtPayment.delete).toHaveBeenCalledWith({
-        where: { id: 'pay1' },
+      expect(prisma.objectiveEntry.delete).toHaveBeenCalledWith({
+        where: { id: 'entry1' },
       });
-      expect(prisma.debt.update).toHaveBeenCalledWith({
+      expect(prisma.financialObjective.update).toHaveBeenCalledWith({
         where: { id: 'debt1' },
         data: { currentAmount: { increment: 100 } },
       });
@@ -192,20 +181,21 @@ describe('TransactionsService - linked transaction sync', () => {
         userId: 'user1',
         amount: 50,
       });
-      prisma.goalContribution.findUnique.mockResolvedValue({
-        id: 'contrib1',
-        goalId: 'goal1',
+      prisma.objectiveEntry.findUnique.mockResolvedValue({
+        id: 'entry2',
+        objectiveId: 'goal1',
         amount: 50,
         type: 'ADD',
+        objective: { type: 'SAVING_GOAL' },
       });
       prisma.transaction.delete.mockResolvedValue({ id: 'tx2' });
 
       await service.remove('tx2', 'user1');
 
-      expect(prisma.goalContribution.delete).toHaveBeenCalledWith({
-        where: { id: 'contrib1' },
+      expect(prisma.objectiveEntry.delete).toHaveBeenCalledWith({
+        where: { id: 'entry2' },
       });
-      expect(prisma.goal.update).toHaveBeenCalledWith({
+      expect(prisma.financialObjective.update).toHaveBeenCalledWith({
         where: { id: 'goal1' },
         data: { currentAmount: { increment: -50 } },
       });
@@ -219,21 +209,22 @@ describe('TransactionsService - linked transaction sync', () => {
         userId: 'user1',
         amount: 100,
       });
-      prisma.debtPayment.findUnique.mockResolvedValue({
-        id: 'pay1',
-        debtId: 'debt1',
+      prisma.objectiveEntry.findUnique.mockResolvedValue({
+        id: 'entry1',
+        objectiveId: 'debt1',
         amount: 100,
         type: 'PAYMENT',
+        objective: { type: 'DEBT_PAYOFF' },
       });
       prisma.transaction.update.mockResolvedValue({ id: 'tx1', amount: 120 });
 
       await service.update('tx1', 'user1', { amount: 120 });
 
-      expect(prisma.debtPayment.update).toHaveBeenCalledWith({
-        where: { id: 'pay1' },
+      expect(prisma.objectiveEntry.update).toHaveBeenCalledWith({
+        where: { id: 'entry1' },
         data: { amount: 120 },
       });
-      expect(prisma.debt.update).toHaveBeenCalledWith({
+      expect(prisma.financialObjective.update).toHaveBeenCalledWith({
         where: { id: 'debt1' },
         data: { currentAmount: { increment: -20 } },
       });
@@ -242,24 +233,25 @@ describe('TransactionsService - linked transaction sync', () => {
       );
     });
 
-    it('does not touch debt/goal balances when the amount is unchanged', async () => {
+    it('does not touch objective balances when the amount is unchanged', async () => {
       prisma.transaction.findFirst.mockResolvedValue({
         id: 'tx1',
         userId: 'user1',
         amount: 100,
       });
-      prisma.debtPayment.findUnique.mockResolvedValue({
-        id: 'pay1',
-        debtId: 'debt1',
+      prisma.objectiveEntry.findUnique.mockResolvedValue({
+        id: 'entry1',
+        objectiveId: 'debt1',
         amount: 100,
         type: 'PAYMENT',
+        objective: { type: 'DEBT_PAYOFF' },
       });
       prisma.transaction.update.mockResolvedValue({ id: 'tx1', amount: 100 });
 
       await service.update('tx1', 'user1', { note: 'updated note' });
 
-      expect(prisma.debtPayment.update).not.toHaveBeenCalled();
-      expect(prisma.debt.update).not.toHaveBeenCalled();
+      expect(prisma.objectiveEntry.update).not.toHaveBeenCalled();
+      expect(prisma.financialObjective.update).not.toHaveBeenCalled();
     });
   });
 });

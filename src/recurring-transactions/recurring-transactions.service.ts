@@ -136,17 +136,7 @@ export class RecurringTransactionsService {
           data: { lastGeneratedAt: today },
         });
 
-        // Recalcular forecast
-        const goals = await this.prisma.goal.findMany({
-          where: { userId: rt.userId },
-        });
-        for (const goal of goals) {
-          try {
-            await this.forecastService.computeForecast(goal.id, rt.userId);
-          } catch {
-            // ignorar
-          }
-        }
+        await this.forecastService.recalculateAllForUser(rt.userId);
       }
     }
   }

@@ -182,42 +182,17 @@ Los siguientes features están documentados como posibles evoluciones pero no es
 - Paridad con widget Android existente
 - Requiere implementación nativa con WidgetKit
 
-### FinancialObjective V2
+### FinancialObjective V2 — hecho (backend), pendiente frontend
 
-Problema: `Goal` y `Debt` se modelan por separado aunque comparten el mismo motor de forecast. Tienen progreso inverso (Meta: `0 → objetivo`; Deuda: `saldo pendiente → 0`), lo cual genera duplicación de lógica de cálculo.
+Problema original: `Goal` y `Debt` se modelaban por separado aunque compartían el mismo motor de forecast. Tenían progreso inverso (Meta: `0 → objetivo`; Deuda: `saldo pendiente → 0`), lo cual generaba duplicación de lógica de cálculo, y `Debt` ni siquiera tenía forecast propio.
 
-- Unificar `Goal` y `Debt` en un solo modelo `FinancialObjective` con tipos `SAVING_GOAL` y `DEBT_PAYOFF`
-- Compartir motor de forecast entre ambos: `remaining = targetAmount - currentAmount` (SAVING_GOAL) vs. `remaining = currentAmount` (DEBT_PAYOFF)
-- Cuando una deuda llegue a cero, mostrar el monto mensual liberado y recalcular automáticamente el forecast de las metas activas
+**Implementado** (change OpenSpec `unify-financial-objective`): `Goal`, `Debt`, `GoalContribution`, `DebtPayment` y `ForecastSnapshot` se reemplazaron por un único modelo `FinancialObjective` (tipos `SAVING_GOAL` / `DEBT_PAYOFF`), un ledger unificado `ObjectiveEntry` (`ADD`/`WITHDRAW`/`PAYMENT`/`INCREASE`) y `ObjectiveForecastSnapshot`. `ForecastService` ahora comparte un único cálculo de proyección (`remaining/rate → meses → fecha`, confianza por volumen de datos, tendencia por snapshot anterior) parametrizado por dirección: `remaining = targetAmount - currentAmount` (SAVING_GOAL) vs. `remaining = currentAmount` (DEBT_PAYOFF). `transactions.service.ts` también unificó la lógica de reversión de saldo (antes duplicada para `debtPayment`/`goalContribution`) en un solo lookup contra `ObjectiveEntry` con una tabla de signos compartida.
 
-Diseño propuesto:
+Esta migración fue destructiva a propósito: como el proyecto usa `prisma db push` sin migraciones versionadas y los datos existentes eran de prueba/personales, se optó por un backup manual (`pg_dump`) seguido de un reemplazo directo del schema, en vez de escribir un script de migración de datos.
 
-```prisma
-enum FinancialObjectiveType {
-  SAVING_GOAL
-  DEBT_PAYOFF
-}
+**No implementado (a propósito, alcance de esta ronda)**: `GoalsController`/`DebtController` y las rutas `/goals`/`/debts` se mantuvieron exactamente iguales (`GoalsService`/`DebtService` son ahora adaptadores delgados sobre `FinancialObjectivesService`) — el frontend no requirió ningún cambio. No se expuso un endpoint `/objectives` nuevo. Sí se agregó `GET /debts/:id/forecast` (aditivo), dándole a `Debt` una fecha de pago estimada real por primera vez, aunque `DebtDetailScreen` todavía no lo consume.
 
-model FinancialObjective {
-  id            String   @id @default(uuid())
-  userId        String
-  name          String
-  type          FinancialObjectiveType
-  targetAmount  Decimal
-  currentAmount Decimal
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  user         User          @relation(fields: [userId], references: [id])
-  transactions Transaction[]
-}
-```
-
-`Transaction` ganaría una referencia opcional `objectiveId` / `objective FinancialObjective?`.
-
-Endpoints nuevos: `GET/POST/PATCH/DELETE /objectives`, `GET /objectives/:id/forecast`.
-
-Migración en 3 fases: (1) mantener `Goal` como está, (2) migrar `Goal` → `FinancialObjective(type=SAVING_GOAL)` sin romper consumidores, (3) eliminar `Goal`. No iniciada.
+**Próximo paso natural** (no iniciado): si en algún momento se quiere una sola pantalla/componente para metas y deudas en el frontend, ahí sí tendría sentido exponer `/objectives` y migrar `GoalDetailScreen`/`DebtDetailScreen`/`GoalCard`/`DebtCard` para aprovechar el modelo ya unificado en el backend.
 
 ---
 
