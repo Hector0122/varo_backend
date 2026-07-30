@@ -5,11 +5,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
-import { GoalsModule } from './goals/goals.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { ForecastModule } from './forecast/forecast.module';
 import { CategoriesModule } from './categories/categories.module';
-import { DebtModule } from './debt/debt.module';
 import { RecurringTransactionsModule } from './recurring-transactions/recurring-transactions.module';
 import { FinancialObjectivesModule } from './financial-objectives/financial-objectives.module';
 
@@ -20,10 +18,8 @@ import { FinancialObjectivesModule } from './financial-objectives/financial-obje
     PrismaModule,
     AuthModule,
     TransactionsModule,
-    GoalsModule,
     ForecastModule,
     CategoriesModule,
-    DebtModule,
     RecurringTransactionsModule,
     FinancialObjectivesModule,
   ],

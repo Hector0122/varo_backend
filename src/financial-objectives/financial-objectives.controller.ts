@@ -17,6 +17,11 @@ import { RequestWithUser } from '../types/request-with-user';
 import { ForecastService } from '../forecast/forecast.service';
 import { SYSTEM_CATEGORIES } from '../categories/system-categories.constant';
 import { parseDateInput } from '../common/date.util';
+import {
+  addCycles,
+  getBillingCycleStart,
+  getCurrentBillingPeriod,
+} from './billing-cycle.util';
 import { FinancialObjectivesService } from './financial-objectives.service';
 import { CreateFinancialObjectiveDto } from './dto/create-financial-objective.dto';
 import { UpdateFinancialObjectiveDto } from './dto/update-financial-objective.dto';
@@ -161,6 +166,70 @@ export class FinancialObjectivesController {
     return objective.type === 'SAVING_GOAL'
       ? this.forecastService.computeForecast(id, req.user.id)
       : this.forecastService.computeDebtForecast(id, req.user.id);
+  }
+
+  // Billing-cycle-aware monthly spending for DEBT_PAYOFF objectives, ported
+  // as-is from the (removed) DebtService.getMonthlySpending — this is the one
+  // piece of debt-specific business logic that doesn't fit the generic
+  // FinancialObjectivesService and has no equivalent elsewhere under
+  // /objectives, per specs/objective-api/spec.md.
+  @Get('spending/monthly')
+  async getMonthlySpending(@Req() req: RequestWithUser) {
+    const debts = await this.objectives.findAllAny(req.user.id, 'DEBT_PAYOFF');
+    const now = new Date();
+
+    const results: {
+      debtId: string;
+      monthlySpending: number;
+      periodStart: Date;
+      periodEnd: Date;
+    }[] = [];
+
+    for (const debt of debts) {
+      const statementDay = debt.statementDay ?? 1;
+      const { periodStart, periodEnd } = getCurrentBillingPeriod(
+        statementDay,
+        now,
+      );
+
+      const increases = await this.objectives.getEntries(debt.id, ['INCREASE']);
+
+      let monthlySpending = 0;
+
+      for (const entry of increases) {
+        const installments = entry.installments ?? 1;
+        const purchaseDate = entry.purchaseDate
+          ? new Date(entry.purchaseDate)
+          : new Date(entry.createdAt);
+        const firstCycleStart = getBillingCycleStart(
+          purchaseDate,
+          statementDay,
+        );
+
+        if (installments === 1) {
+          if (firstCycleStart.getTime() === periodStart.getTime()) {
+            monthlySpending += Number(entry.amount);
+          }
+        } else {
+          const portion = Number(entry.amount) / installments;
+          for (let m = 0; m < installments; m++) {
+            const cycleStart = addCycles(firstCycleStart, m, statementDay);
+            if (cycleStart.getTime() === periodStart.getTime()) {
+              monthlySpending += portion;
+            }
+          }
+        }
+      }
+
+      results.push({
+        debtId: debt.id,
+        monthlySpending: Math.round(monthlySpending * 100) / 100,
+        periodStart,
+        periodEnd,
+      });
+    }
+
+    return results;
   }
 
   private buildLinkedTransaction(

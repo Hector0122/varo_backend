@@ -177,6 +177,58 @@ describe('FinancialObjectivesController', () => {
     });
   });
 
+  describe('getMonthlySpending', () => {
+    it('sums INCREASE entries falling in the current billing cycle for each debt', async () => {
+      const now = new Date();
+      const statementDay = now.getDate();
+
+      objectives.findAllAny.mockResolvedValue([
+        {
+          id: 'debt1',
+          type: 'DEBT_PAYOFF',
+          statementDay,
+          createdAt: now,
+        },
+      ]);
+      objectives.getEntries.mockResolvedValue([
+        { amount: 100, installments: 1, purchaseDate: now, createdAt: now },
+      ]);
+
+      const result = await controller.getMonthlySpending(req);
+
+      expect(objectives.findAllAny).toHaveBeenCalledWith(
+        'user1',
+        'DEBT_PAYOFF',
+      );
+      expect(result).toEqual([
+        expect.objectContaining({ debtId: 'debt1', monthlySpending: 100 }),
+      ]);
+    });
+
+    it('splits an installment purchase evenly across its cycles', async () => {
+      const now = new Date();
+      const statementDay = now.getDate();
+
+      objectives.findAllAny.mockResolvedValue([
+        {
+          id: 'debt1',
+          type: 'DEBT_PAYOFF',
+          statementDay,
+          createdAt: now,
+        },
+      ]);
+      objectives.getEntries.mockResolvedValue([
+        { amount: 300, installments: 3, purchaseDate: now, createdAt: now },
+      ]);
+
+      const result = await controller.getMonthlySpending(req);
+
+      expect(result).toEqual([
+        expect.objectContaining({ debtId: 'debt1', monthlySpending: 100 }),
+      ]);
+    });
+  });
+
   describe('getForecast', () => {
     it('dispatches to computeForecast for a SAVING_GOAL', async () => {
       objectives.findOneAny.mockResolvedValue({
