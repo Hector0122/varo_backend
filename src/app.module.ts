@@ -11,6 +11,7 @@ import { ForecastModule } from './forecast/forecast.module';
 import { CategoriesModule } from './categories/categories.module';
 import { DebtModule } from './debt/debt.module';
 import { RecurringTransactionsModule } from './recurring-transactions/recurring-transactions.module';
+import { FinancialObjectivesModule } from './financial-objectives/financial-objectives.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { RecurringTransactionsModule } from './recurring-transactions/recurring-
     CategoriesModule,
     DebtModule,
     RecurringTransactionsModule,
+    FinancialObjectivesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

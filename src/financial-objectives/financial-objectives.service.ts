@@ -50,6 +50,26 @@ export class FinancialObjectivesService {
     });
   }
 
+  // Type-agnostic variants for the unified /objectives surface, where the
+  // caller doesn't know (and shouldn't need to specify) SAVING_GOAL vs
+  // DEBT_PAYOFF up front the way GoalsService/DebtService always do.
+  findAllAny(userId: string, type?: FinancialObjectiveType) {
+    return this.prisma.financialObjective.findMany({
+      where: { userId, ...(type && { type }) },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOneAny(id: string, userId: string) {
+    const objective = await this.prisma.financialObjective.findFirst({
+      where: { id, userId },
+    });
+    if (!objective) {
+      throw new NotFoundException('Financial objective not found');
+    }
+    return objective;
+  }
+
   async findOne(
     id: string,
     userId: string,

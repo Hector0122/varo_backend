@@ -137,7 +137,7 @@ export class TransactionsService {
         date: parseDateInput(dto.date),
       },
     });
-    await this.forecastService.recalculateAllForUser(userId);
+    await this.safeRecalculate(userId);
     return tx;
   }
 
@@ -180,7 +180,7 @@ export class TransactionsService {
       });
     });
 
-    await this.forecastService.recalculateAllForUser(userId);
+    await this.safeRecalculate(userId);
     return tx;
   }
 
@@ -205,8 +205,20 @@ export class TransactionsService {
       return txClient.transaction.delete({ where: { id } });
     });
 
-    await this.forecastService.recalculateAllForUser(userId);
+    await this.safeRecalculate(userId);
     return tx;
+  }
+
+  // El recálculo de forecast es un efecto derivado, no la escritura principal:
+  // un hipo transitorio aquí (p.ej. conexión a la BD) no debe reportarse como
+  // fallo del guardado/actualización/borrado que ya se confirmó.
+  private async safeRecalculate(userId: string) {
+    try {
+      await this.forecastService.recalculateAllForUser(userId);
+    } catch {
+      // Ignorado a propósito; el próximo recálculo (otra mutación, o el cron)
+      // lo pondrá al día.
+    }
   }
 
   async exportToCsv(userId: string) {
