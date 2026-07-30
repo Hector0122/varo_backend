@@ -161,6 +161,17 @@ export class ForecastService {
     };
   }
 
+  async recalculateAllForUser(userId: string) {
+    const goals = await this.prisma.goal.findMany({ where: { userId } });
+    for (const goal of goals) {
+      try {
+        await this.computeForecast(goal.id, userId);
+      } catch {
+        // Ignorar metas que no pueden generar forecast (ahorro <= 0)
+      }
+    }
+  }
+
   async getSnapshots(goalId: string, userId: string) {
     const goal = await this.prisma.goal.findFirst({
       where: { id: goalId, userId },

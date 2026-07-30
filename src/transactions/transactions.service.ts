@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,17 +17,6 @@ export class TransactionsService {
     private forecastService: ForecastService,
     private configService: ConfigService,
   ) {}
-
-  private async recalculateForecasts(userId: string) {
-    const goals = await this.prisma.goal.findMany({ where: { userId } });
-    for (const goal of goals) {
-      try {
-        await this.forecastService.computeForecast(goal.id, userId);
-      } catch {
-        // Ignorar metas que no pueden generar forecast (ahorro <= 0)
-      }
-    }
-  }
 
   async findAll(
     userId: string,
@@ -113,17 +106,13 @@ export class TransactionsService {
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new BadRequestException(
-        'No se pudieron extraer datos del ticket',
-      );
+      throw new BadRequestException('No se pudieron extraer datos del ticket');
     }
 
     try {
       return JSON.parse(jsonMatch[0]);
     } catch {
-      throw new BadRequestException(
-        'Error al parsear los datos extraídos',
-      );
+      throw new BadRequestException('Error al parsear los datos extraídos');
     }
   }
 
@@ -138,32 +127,101 @@ export class TransactionsService {
         date: new Date(dto.date),
       },
     });
-    await this.recalculateForecasts(userId);
+    await this.forecastService.recalculateAllForUser(userId);
     return tx;
   }
 
   async update(id: string, userId: string, dto: UpdateTransactionDto) {
-    await this.findOne(id, userId);
+    const existing = await this.findOne(id, userId);
 
-    const tx = await this.prisma.transaction.update({
-      where: { id },
-      data: {
-        ...(dto.amount !== undefined && { amount: dto.amount }),
-        ...(dto.type && { type: dto.type }),
-        ...(dto.category && { category: dto.category }),
-        ...(dto.note !== undefined && { note: dto.note }),
-        ...(dto.date && { date: new Date(dto.date) }),
-      },
+    const [debtPayment, goalContribution] = await Promise.all([
+      this.prisma.debtPayment.findUnique({ where: { transactionId: id } }),
+      this.prisma.goalContribution.findUnique({ where: { transactionId: id } }),
+    ]);
+
+    const amountChanged =
+      dto.amount !== undefined &&
+      Number(dto.amount) !== Number(existing.amount);
+    const delta = amountChanged
+      ? Number(dto.amount) - Number(existing.amount)
+      : 0;
+
+    const tx = await this.prisma.$transaction(async (txClient) => {
+      if (amountChanged && debtPayment) {
+        await txClient.debtPayment.update({
+          where: { id: debtPayment.id },
+          data: { amount: dto.amount },
+        });
+        const balanceDelta = debtPayment.type === 'PAYMENT' ? -delta : delta;
+        await txClient.debt.update({
+          where: { id: debtPayment.debtId },
+          data: { currentAmount: { increment: balanceDelta } },
+        });
+      }
+      if (amountChanged && goalContribution) {
+        await txClient.goalContribution.update({
+          where: { id: goalContribution.id },
+          data: { amount: dto.amount },
+        });
+        const balanceDelta = goalContribution.type === 'ADD' ? delta : -delta;
+        await txClient.goal.update({
+          where: { id: goalContribution.goalId },
+          data: { currentAmount: { increment: balanceDelta } },
+        });
+      }
+      return txClient.transaction.update({
+        where: { id },
+        data: {
+          ...(dto.amount !== undefined && { amount: dto.amount }),
+          ...(dto.type && { type: dto.type }),
+          ...(dto.category && { category: dto.category }),
+          ...(dto.note !== undefined && { note: dto.note }),
+          ...(dto.date && { date: new Date(dto.date) }),
+        },
+      });
     });
-    await this.recalculateForecasts(userId);
+
+    await this.forecastService.recalculateAllForUser(userId);
     return tx;
   }
 
   async remove(id: string, userId: string) {
     await this.findOne(id, userId);
 
-    const tx = await this.prisma.transaction.delete({ where: { id } });
-    await this.recalculateForecasts(userId);
+    const [debtPayment, goalContribution] = await Promise.all([
+      this.prisma.debtPayment.findUnique({ where: { transactionId: id } }),
+      this.prisma.goalContribution.findUnique({ where: { transactionId: id } }),
+    ]);
+
+    const tx = await this.prisma.$transaction(async (txClient) => {
+      if (debtPayment) {
+        await txClient.debtPayment.delete({ where: { id: debtPayment.id } });
+        const balanceDelta =
+          debtPayment.type === 'PAYMENT'
+            ? Number(debtPayment.amount)
+            : -Number(debtPayment.amount);
+        await txClient.debt.update({
+          where: { id: debtPayment.debtId },
+          data: { currentAmount: { increment: balanceDelta } },
+        });
+      }
+      if (goalContribution) {
+        await txClient.goalContribution.delete({
+          where: { id: goalContribution.id },
+        });
+        const balanceDelta =
+          goalContribution.type === 'ADD'
+            ? -Number(goalContribution.amount)
+            : Number(goalContribution.amount);
+        await txClient.goal.update({
+          where: { id: goalContribution.goalId },
+          data: { currentAmount: { increment: balanceDelta } },
+        });
+      }
+      return txClient.transaction.delete({ where: { id } });
+    });
+
+    await this.forecastService.recalculateAllForUser(userId);
     return tx;
   }
 
@@ -188,7 +246,11 @@ export class TransactionsService {
         row
           .map((cell) => {
             const escaped = String(cell).replace(/"/g, '""');
-            if (escaped.includes(',') || escaped.includes('\n') || escaped.includes('"')) {
+            if (
+              escaped.includes(',') ||
+              escaped.includes('\n') ||
+              escaped.includes('"')
+            ) {
               return `"${escaped}"`;
             }
             return escaped;

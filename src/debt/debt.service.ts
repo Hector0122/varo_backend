@@ -4,6 +4,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ForecastService } from '../forecast/forecast.service';
+import { SYSTEM_CATEGORIES } from '../categories/system-categories.constant';
 import { CreateDebtDto } from './dto/create-debt.dto';
 import { UpdateDebtDto } from './dto/update-debt.dto';
 import { MakePaymentDto } from './dto/make-payment.dto';
@@ -16,7 +18,10 @@ import {
 
 @Injectable()
 export class DebtService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private forecastService: ForecastService,
+  ) {}
 
   async findAll(userId: string) {
     return this.prisma.debt.findMany({
@@ -79,18 +84,35 @@ export class DebtService {
         'El pago no puede ser mayor al saldo pendiente',
       );
     }
-    await this.prisma.debtPayment.create({
-      data: {
-        debtId: id,
-        amount: dto.amount,
-        type: 'PAYMENT',
-        ...(dto.note && { note: dto.note }),
-      },
+
+    const updatedDebt = await this.prisma.$transaction(async (tx) => {
+      const transaction = await tx.transaction.create({
+        data: {
+          userId,
+          amount: dto.amount,
+          type: 'EXPENSE',
+          category: SYSTEM_CATEGORIES.DEBT_PAYMENT,
+          note: dto.note ?? `Pago: ${debt.name}`,
+          date: new Date(),
+        },
+      });
+      await tx.debtPayment.create({
+        data: {
+          debtId: id,
+          amount: dto.amount,
+          type: 'PAYMENT',
+          ...(dto.note && { note: dto.note }),
+          transactionId: transaction.id,
+        },
+      });
+      return tx.debt.update({
+        where: { id },
+        data: { currentAmount: { decrement: dto.amount } },
+      });
     });
-    return this.prisma.debt.update({
-      where: { id },
-      data: { currentAmount: { decrement: dto.amount } },
-    });
+
+    await this.forecastService.recalculateAllForUser(userId);
+    return updatedDebt;
   }
 
   async addAmount(id: string, userId: string, dto: AddAmountDto) {

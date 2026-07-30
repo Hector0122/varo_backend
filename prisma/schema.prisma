@@ -29,7 +29,9 @@ model Transaction {
   note     String?
   date     DateTime
 
-  user User @relation(fields: [userId], references: [id])
+  user             User               @relation(fields: [userId], references: [id])
+  debtPayment      DebtPayment?
+  goalContribution GoalContribution?
 }
 
 model Category {
@@ -54,6 +56,7 @@ model Goal {
 
   user     User               @relation(fields: [userId], references: [id])
   snapshots ForecastSnapshot[]
+  contributions GoalContribution[]
 }
 
 model ForecastSnapshot {
@@ -92,6 +95,24 @@ model DebtPayment {
   createdAt     DateTime @default(now())
 
   debt Debt @relation(fields: [debtId], references: [id])
+
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+}
+
+model GoalContribution {
+  id        String   @id @default(uuid())
+  goalId    String
+  amount    Decimal
+  type      String   // 'ADD' or 'WITHDRAW'
+  note      String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  goal Goal @relation(fields: [goalId], references: [id])
+
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 }
 
 model RecurringTransaction {
