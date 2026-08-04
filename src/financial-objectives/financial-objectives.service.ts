@@ -90,14 +90,27 @@ export class FinancialObjectivesService {
     type: FinancialObjectiveType,
     data: CreateObjectiveInput,
   ) {
+    // currentAmount means different things per type: for SAVING_GOAL it's
+    // "saved so far" and correctly starts at 0 (Prisma default). For
+    // DEBT_PAYOFF it's the *pending balance*, which must start equal to the
+    // full targetAmount — otherwise a freshly created debt reads as already
+    // paid off (progress = targetAmount - currentAmount = targetAmount) and
+    // any payment is rejected as "greater than the pending balance".
+    const currentAmount =
+      data.currentAmount !== undefined
+        ? data.currentAmount
+        : type === 'DEBT_PAYOFF'
+          ? data.targetAmount
+          : undefined;
+
     return this.prisma.financialObjective.create({
       data: {
         userId,
         type,
         name: data.name,
         targetAmount: data.targetAmount,
-        ...(data.currentAmount !== undefined && {
-          currentAmount: data.currentAmount,
+        ...(currentAmount !== undefined && {
+          currentAmount,
         }),
         ...(data.savingAllocation !== undefined && {
           savingAllocation: data.savingAllocation,
