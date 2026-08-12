@@ -9,10 +9,8 @@ import {
   Post,
   Query,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 import { FinancialObjectiveType } from '@prisma/client';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequestWithUser } from '../types/request-with-user';
 import { ForecastService } from '../forecast/forecast.service';
 import { SYSTEM_CATEGORIES } from '../categories/system-categories.constant';
@@ -45,7 +43,6 @@ const ALLOWED_ENTRY_TYPES: Record<
   DEBT_PAYOFF: ['PAYMENT', 'INCREASE'],
 };
 
-@UseGuards(JwtAuthGuard)
 @Controller('objectives')
 export class FinancialObjectivesController {
   constructor(

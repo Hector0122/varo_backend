@@ -7,15 +7,12 @@ import {
   Patch,
   Post,
   Req,
-  UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequestWithUser } from '../types/request-with-user';
 import { RecurringTransactionsService } from './recurring-transactions.service';
 import { CreateRecurringTransactionDto } from './dto/create-recurring-transaction.dto';
 import { UpdateRecurringTransactionDto } from './dto/update-recurring-transaction.dto';
 
-@UseGuards(JwtAuthGuard)
 @Controller('recurring-transactions')
 export class RecurringTransactionsController {
   constructor(private service: RecurringTransactionsService) {}

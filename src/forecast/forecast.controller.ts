@@ -1,10 +1,8 @@
-import { Controller, Get, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Param, Req } from '@nestjs/common';
 import { ForecastService } from './forecast.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequestWithUser } from '../types/request-with-user';
 
 @Controller('forecast')
-@UseGuards(JwtAuthGuard)
 export class ForecastController {
   constructor(private forecastService: ForecastService) {}
 
