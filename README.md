@@ -30,4 +30,4 @@ Desplegado en Railway.
 
 ## Licencia
 
-MIT
+MIT — ver [LICENSE](LICENSE)
