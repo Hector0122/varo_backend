@@ -1,4 +1,4 @@
-# Varo — Backend
+# Varo 💰 — Backend
 
 API REST para Varo, una app móvil de finanzas personales para Android. Capturas y descripción completa: **[varo_frontend](https://github.com/Hector0122/varo_frontend)**.
 
