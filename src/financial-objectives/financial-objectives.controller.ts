@@ -143,6 +143,7 @@ export class FinancialObjectivesController {
         objective,
         dto.type,
         dto.note,
+        dto.category,
       ),
       incrementTargetAmount: dto.type === 'INCREASE',
     });
@@ -233,6 +234,7 @@ export class FinancialObjectivesController {
     objective: { name: string },
     entryType: ObjectiveEntryType,
     note?: string,
+    category?: string,
   ) {
     if (entryType === 'ADD') {
       return {
@@ -255,7 +257,15 @@ export class FinancialObjectivesController {
         note: note ?? `Pago: ${objective.name}`,
       };
     }
-    return undefined; // INCREASE never links a Transaction (matches DebtService.addAmount)
+    if (entryType === 'INCREASE' && category) {
+      // Compra con tarjeta: es un gasto (cuenta en la categoría) y sube la deuda.
+      return {
+        type: 'EXPENSE' as const,
+        category,
+        note: note ?? `Tarjeta: ${objective.name}`,
+      };
+    }
+    return undefined; // INCREASE sin categoría (ajuste de saldo) no crea movimiento
   }
 
   // Forecast recalculation is a derived side effect of the write above, not

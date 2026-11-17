@@ -49,7 +49,13 @@ export class TransactionsService {
       orderBy.date = 'desc';
     }
 
-    return this.prisma.transaction.findMany({ where, orderBy });
+    return this.prisma.transaction.findMany({
+      where,
+      orderBy,
+      include: {
+        objectiveEntry: { select: { objectiveId: true, type: true } },
+      },
+    });
   }
 
   async findOne(id: string, userId: string) {

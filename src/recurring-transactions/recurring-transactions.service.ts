@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ForecastService } from '../forecast/forecast.service';
 import { CreateRecurringTransactionDto } from './dto/create-recurring-transaction.dto';
 import { UpdateRecurringTransactionDto } from './dto/update-recurring-transaction.dto';
+import { Frequency, latestOccurrence, utcDay } from './occurrence.util';
 
 @Injectable()
 export class RecurringTransactionsService {
@@ -66,78 +67,43 @@ export class RecurringTransactionsService {
     return this.prisma.recurringTransaction.delete({ where: { id } });
   }
 
+  /**
+   * Cada día registra los fijos cuya fecha más reciente (según su frecuencia y
+   * su día de inicio) aún no se generó.
+   * ponytail: si el servidor estuvo caído varios periodos solo genera el último.
+   */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async processRecurringTransactions() {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
+    const today = utcDay(new Date());
     const recurring = await this.prisma.recurringTransaction.findMany({
       where: { isActive: true },
     });
 
     for (const rt of recurring) {
-      const startDate = new Date(rt.startDate);
-      const endDate = rt.endDate ? new Date(rt.endDate) : null;
+      const due = latestOccurrence(
+        rt.startDate,
+        rt.frequency as Frequency,
+        today,
+      );
+      if (!due) continue;
+      if (rt.endDate && due > rt.endDate) continue;
+      if (rt.lastGeneratedAt && utcDay(rt.lastGeneratedAt) >= due) continue;
 
-      if (endDate && today > endDate) continue;
-      if (today < startDate) continue;
-
-      let shouldGenerate = false;
-      const lastGenerated = rt.lastGeneratedAt
-        ? new Date(rt.lastGeneratedAt)
-        : null;
-
-      if (!lastGenerated) {
-        shouldGenerate = true;
-      } else {
-        const lastGenDate = new Date(
-          lastGenerated.getFullYear(),
-          lastGenerated.getMonth(),
-          lastGenerated.getDate(),
-        );
-        const diffMs = today.getTime() - lastGenDate.getTime();
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-        switch (rt.frequency) {
-          case 'DAILY':
-            shouldGenerate = diffDays >= 1;
-            break;
-          case 'WEEKLY':
-            shouldGenerate = diffDays >= 7;
-            break;
-          case 'BIWEEKLY':
-            shouldGenerate = diffDays >= 14;
-            break;
-          case 'MONTHLY':
-            shouldGenerate =
-              today.getMonth() !== lastGenDate.getMonth() ||
-              today.getFullYear() !== lastGenDate.getFullYear();
-            break;
-          case 'YEARLY':
-            shouldGenerate = today.getFullYear() !== lastGenDate.getFullYear();
-            break;
-        }
-      }
-
-      if (shouldGenerate) {
-        await this.prisma.transaction.create({
-          data: {
-            userId: rt.userId,
-            amount: rt.amount,
-            type: rt.type,
-            category: rt.category,
-            note: rt.note ? `${rt.note} (recurrente)` : 'Recurrente',
-            date: today,
-          },
-        });
-
-        await this.prisma.recurringTransaction.update({
-          where: { id: rt.id },
-          data: { lastGeneratedAt: today },
-        });
-
-        await this.forecastService.recalculateAllForUser(rt.userId);
-      }
+      await this.prisma.transaction.create({
+        data: {
+          userId: rt.userId,
+          amount: rt.amount,
+          type: rt.type,
+          category: rt.category,
+          note: rt.note ? `${rt.note} (recurrente)` : 'Recurrente',
+          date: due,
+        },
+      });
+      await this.prisma.recurringTransaction.update({
+        where: { id: rt.id },
+        data: { lastGeneratedAt: due },
+      });
+      await this.forecastService.recalculateAllForUser(rt.userId);
     }
   }
 }
