@@ -8,7 +8,9 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ForecastService } from '../forecast/forecast.service';
 import { objectiveEntrySign } from '../financial-objectives/financial-objectives.service';
+import { PDFParse } from 'pdf-parse';
 import { parseDateInput } from '../common/date.util';
+import { parseStatement } from './statement.parser';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
@@ -212,6 +214,117 @@ export class TransactionsService {
   // El recálculo de forecast es un efecto derivado, no la escritura principal:
   // un hipo transitorio aquí (p.ej. conexión a la BD) no debe reportarse como
   // fallo del guardado/actualización/borrado que ya se confirmó.
+  /** Varios movimientos de una vez (importar estado de cuenta): un solo recálculo. */
+  async createMany(userId: string, dtos: CreateTransactionDto[]) {
+    const { count } = await this.prisma.transaction.createMany({
+      data: dtos.map((dto) => ({
+        userId,
+        amount: dto.amount,
+        type: dto.type,
+        category: dto.category,
+        note: dto.note ?? null,
+        date: parseDateInput(dto.date),
+      })),
+    });
+    // Categorías nuevas que haya sugerido la IA, para que aparezcan en la app.
+    await this.prisma.category.createMany({
+      data: [...new Map(dtos.map((d) => [d.category, d.type])).entries()].map(
+        ([name, type]) => ({ userId, name, type }),
+      ),
+      skipDuplicates: true,
+    });
+    await this.safeRecalculate(userId);
+    return { count };
+  }
+
+  /**
+   * Lee el PDF de un estado de cuenta y devuelve sus movimientos con una
+   * categoría sugerida, para que el usuario los revise antes de guardar.
+   * A la IA solo van las descripciones (sin nombre, dirección ni cuenta).
+   */
+  async importStatement(userId: string, file?: { buffer: Buffer }) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Sube el PDF del estado de cuenta');
+    }
+    const parser = new PDFParse({ data: new Uint8Array(file.buffer) });
+    let text: string;
+    try {
+      text = (await parser.getText()).text;
+    } catch {
+      throw new BadRequestException('No se pudo leer el PDF');
+    } finally {
+      await parser.destroy().catch(() => {});
+    }
+
+    const rows = parseStatement(text);
+    if (!rows.length) {
+      throw new BadRequestException(
+        'No encontré movimientos en este PDF. ¿Es un estado de cuenta con texto (no escaneado)?',
+      );
+    }
+
+    const categories = await this.prisma.category.findMany({
+      where: { userId, type: { in: ['EXPENSE', 'BOTH'] } },
+      select: { name: true },
+    });
+    const expenses = [
+      ...new Set(
+        rows.filter((r) => r.type === 'EXPENSE').map((r) => r.description),
+      ),
+    ];
+    const map = await this.categorize(
+      expenses,
+      categories.map((c) => c.name),
+    ).catch((): Record<string, string> => ({}));
+    return rows.map((r) => ({
+      ...r,
+      category: r.type === 'INCOME' ? 'Abono' : (map[r.description] ?? 'Otro'),
+    }));
+  }
+
+  private async categorize(
+    descriptions: string[],
+    userCategories: string[],
+  ): Promise<Record<string, string>> {
+    const apiKey = this.configService.get<string>('GROQ_API_KEY');
+    if (!apiKey || !descriptions.length) return {};
+    const response = await fetch(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+          max_tokens: 8000,
+          messages: [
+            {
+              role: 'user',
+              content:
+                'Son descripciones de cargos de un estado de cuenta bancario en México. Asigna una categoría de gasto a cada una. ' +
+                `Usa de preferencia las categorías del usuario: ${JSON.stringify(userCategories)}. ` +
+                'Si ninguna encaja usa una de: Comida, Supermercado, Transporte, Gasolina, Servicios, Suscripciones, Salud, Entretenimiento, Ropa, Hogar, Intereses y comisiones, Otro. ' +
+                'Devuelve SOLO JSON con la forma {"categorias": {"<descripción exacta>": "<categoría>"}}.\n' +
+                JSON.stringify(descriptions),
+            },
+          ],
+        }),
+      },
+    );
+    if (!response.ok) return {};
+    const data = (await response.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? '{}') as {
+      categorias?: Record<string, string>;
+    };
+    return parsed.categorias ?? {};
+  }
+
   private async safeRecalculate(userId: string) {
     try {
       await this.forecastService.recalculateAllForUser(userId);

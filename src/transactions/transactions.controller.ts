@@ -9,10 +9,14 @@ import {
   Query,
   Req,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { RequestWithUser } from '../types/request-with-user';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { CreateManyTransactionsDto } from './dto/create-many-transactions.dto';
 import { ScanReceiptDto } from './dto/scan-receipt.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionsService } from './transactions.service';
@@ -41,6 +45,25 @@ export class TransactionsController {
   @Post()
   create(@Req() req: RequestWithUser, @Body() dto: CreateTransactionDto) {
     return this.transactionsService.create(req.user.id, dto);
+  }
+
+  @Post('bulk')
+  createMany(
+    @Req() req: RequestWithUser,
+    @Body() dto: CreateManyTransactionsDto,
+  ) {
+    return this.transactionsService.createMany(req.user.id, dto.transactions);
+  }
+
+  @Post('import-statement')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
+  importStatement(
+    @Req() req: RequestWithUser,
+    @UploadedFile() file?: { buffer: Buffer },
+  ) {
+    return this.transactionsService.importStatement(req.user.id, file);
   }
 
   @Post('scan-receipt')
