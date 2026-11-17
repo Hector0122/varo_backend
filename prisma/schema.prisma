@@ -58,6 +58,9 @@ model FinancialObjective {
   savingAllocation Float? // SAVING_GOAL only
   dueDate          DateTime? // DEBT_PAYOFF only
   statementDay     Int? // DEBT_PAYOFF only
+  nextPayment      Decimal? // DEBT_PAYOFF: próximo pago capturado a mano (proyección)
+  interestRate     Float? // SAVING_GOAL usado como cuenta: rendimiento anual en %
+  balanceDate      DateTime? // SAVING_GOAL usado como cuenta: fecha del último "Actualizar saldo"
   createdAt        DateTime               @default(now())
 
   user      User                        @relation(fields: [userId], references: [id])

@@ -74,6 +74,10 @@ export class FinancialObjectivesController {
       savingAllocation: dto.savingAllocation,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       statementDay: dto.statementDay,
+      currentAmount: dto.currentAmount,
+      nextPayment: dto.nextPayment,
+      interestRate: dto.interestRate,
+      balanceDate: dto.balanceDate ? new Date(dto.balanceDate) : undefined,
     });
   }
 
@@ -93,6 +97,11 @@ export class FinancialObjectivesController {
         dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
       }),
       statementDay: dto.statementDay,
+      nextPayment: dto.nextPayment,
+      interestRate: dto.interestRate,
+      ...(dto.balanceDate !== undefined && {
+        balanceDate: new Date(dto.balanceDate),
+      }),
     });
   }
 
