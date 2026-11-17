@@ -15,6 +15,20 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  /** Deja la cuenta en ceros: borra todo menos el usuario y su login. */
+  async deleteAllData(userId: string) {
+    const objective = { objective: { userId } };
+    await this.prisma.$transaction([
+      this.prisma.objectiveEntry.deleteMany({ where: objective }),
+      this.prisma.objectiveForecastSnapshot.deleteMany({ where: objective }),
+      this.prisma.financialObjective.deleteMany({ where: { userId } }),
+      this.prisma.transaction.deleteMany({ where: { userId } }),
+      this.prisma.recurringTransaction.deleteMany({ where: { userId } }),
+      this.prisma.category.deleteMany({ where: { userId } }),
+    ]);
+    return { ok: true };
+  }
+
   async findById(id: string) {
     return this.prisma.user.findUnique({ where: { id } });
   }
