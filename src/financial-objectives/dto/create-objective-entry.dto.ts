@@ -19,6 +19,11 @@ export class CreateObjectiveEntryDto {
   @Min(0.01)
   amount!: number;
 
+  /** Solo INCREASE: categoría del gasto que se registra junto con el cargo a la tarjeta. */
+  @IsOptional()
+  @IsString()
+  category?: string;
+
   @IsOptional()
   @IsString()
   note?: string;

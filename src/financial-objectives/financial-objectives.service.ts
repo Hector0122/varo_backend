@@ -19,6 +19,9 @@ export interface CreateObjectiveInput {
   savingAllocation?: number;
   dueDate?: Date | null;
   statementDay?: number;
+  nextPayment?: number;
+  interestRate?: number;
+  balanceDate?: Date;
 }
 
 export type UpdateObjectiveInput = Partial<CreateObjectiveInput>;
@@ -119,6 +122,15 @@ export class FinancialObjectivesService {
         ...(data.statementDay !== undefined && {
           statementDay: data.statementDay,
         }),
+        ...(data.nextPayment !== undefined && {
+          nextPayment: data.nextPayment,
+        }),
+        ...(data.interestRate !== undefined && {
+          interestRate: data.interestRate,
+        }),
+        ...(data.balanceDate !== undefined && {
+          balanceDate: data.balanceDate,
+        }),
       },
     });
   }
@@ -147,6 +159,15 @@ export class FinancialObjectivesService {
         ...(data.dueDate !== undefined && { dueDate: data.dueDate }),
         ...(data.statementDay !== undefined && {
           statementDay: data.statementDay,
+        }),
+        ...(data.nextPayment !== undefined && {
+          nextPayment: data.nextPayment,
+        }),
+        ...(data.interestRate !== undefined && {
+          interestRate: data.interestRate,
+        }),
+        ...(data.balanceDate !== undefined && {
+          balanceDate: data.balanceDate,
         }),
       },
     });

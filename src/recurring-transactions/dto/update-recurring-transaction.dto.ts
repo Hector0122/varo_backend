@@ -26,7 +26,7 @@ export class UpdateRecurringTransactionDto {
   note?: string;
 
   @IsOptional()
-  @IsIn(['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'YEARLY'])
+  @IsIn(['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'BIMONTHLY', 'YEARLY'])
   frequency?: string;
 
   @IsOptional()

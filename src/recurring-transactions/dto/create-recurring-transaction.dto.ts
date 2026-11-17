@@ -22,7 +22,7 @@ export class CreateRecurringTransactionDto {
   @IsString()
   note?: string;
 
-  @IsIn(['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'YEARLY'])
+  @IsIn(['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'BIMONTHLY', 'YEARLY'])
   frequency!: string;
 
   @IsDateString()

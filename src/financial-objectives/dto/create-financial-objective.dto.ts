@@ -35,4 +35,25 @@ export class CreateFinancialObjectiveDto {
   @IsInt()
   @Min(1)
   statementDay?: number;
+
+  /** Saldo inicial (cuenta) o pendiente (deuda) si no es igual al objetivo. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  currentAmount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  nextPayment?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  interestRate?: number;
+
+  @IsOptional()
+  @IsDateString()
+  balanceDate?: string;
 }
