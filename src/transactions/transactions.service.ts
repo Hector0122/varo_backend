@@ -1,4 +1,5 @@
 import {
+  Logger,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -10,12 +11,18 @@ import { ForecastService } from '../forecast/forecast.service';
 import { objectiveEntrySign } from '../financial-objectives/financial-objectives.service';
 import { PDFParse } from 'pdf-parse';
 import { parseDateInput } from '../common/date.util';
-import { parseStatement } from './statement.parser';
+import {
+  KEYWORD_CATEGORIES,
+  matchUserCategory,
+  parseStatement,
+} from './statement.parser';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
 @Injectable()
 export class TransactionsService {
+  private readonly logger = new Logger(TransactionsService.name);
+
   constructor(
     private prisma: PrismaService,
     private forecastService: ForecastService,
@@ -282,12 +289,24 @@ export class TransactionsService {
     }));
   }
 
+  /**
+   * Categoría sugerida para cada descripción. Primero palabras clave de
+   * comercios comunes (no falla nunca); el resto se lo pregunta a Groq por
+   * posición, para no depender de que la IA repita la descripción exacta.
+   */
   private async categorize(
     descriptions: string[],
     userCategories: string[],
   ): Promise<Record<string, string>> {
+    const result: Record<string, string> = {};
+    for (const d of descriptions) {
+      const hit = KEYWORD_CATEGORIES.find(([re]) => re.test(d));
+      if (hit) result[d] = matchUserCategory(hit[1], userCategories);
+    }
+    const pending = descriptions.filter((d) => !result[d]);
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
-    if (!apiKey || !descriptions.length) return {};
+    if (!apiKey || !pending.length) return result;
+
     const response = await fetch(
       'https://api.groq.com/openai/v1/chat/completions',
       {
@@ -297,32 +316,48 @@ export class TransactionsService {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
           response_format: { type: 'json_object' },
           temperature: 0.1,
-          max_tokens: 8000,
+          max_tokens: 2000,
           messages: [
             {
               role: 'user',
               content:
-                'Son descripciones de cargos de un estado de cuenta bancario en México. Asigna una categoría de gasto a cada una. ' +
-                `Usa de preferencia las categorías del usuario: ${JSON.stringify(userCategories)}. ` +
-                'Si ninguna encaja usa una de: Comida, Supermercado, Transporte, Gasolina, Servicios, Suscripciones, Salud, Entretenimiento, Ropa, Hogar, Intereses y comisiones, Otro. ' +
-                'Devuelve SOLO JSON con la forma {"categorias": {"<descripción exacta>": "<categoría>"}}.\n' +
-                JSON.stringify(descriptions),
+                'Son descripciones de cargos de una tarjeta bancaria en México (comercios, a veces abreviados). ' +
+                'Asigna una categoría de gasto a cada una, deduciendo el tipo de comercio por el nombre. ' +
+                `Usa de preferencia estas categorías del usuario: ${JSON.stringify(userCategories)}. ` +
+                'Si ninguna encaja usa una de: Comida, Supermercado, Transporte, Gasolina, Servicios, Suscripciones, Salud, Entretenimiento, Ropa, Hogar, Compras en línea, Intereses y comisiones. ' +
+                'Usa "Otro" solo si de verdad no se puede deducir. ' +
+                `Devuelve SOLO JSON {"categorias": [...]} con exactamente ${pending.length} categorías, en el mismo orden.\n` +
+                pending.map((d, i) => `${i + 1}. ${d}`).join('\n'),
             },
           ],
         }),
       },
     );
-    if (!response.ok) return {};
+    if (!response.ok) {
+      this.logger.warn(
+        `Groq categorizar: ${response.status} ${(await response.text()).slice(0, 300)}`,
+      );
+      return result;
+    }
     const data = (await response.json()) as {
       choices?: { message?: { content?: string } }[];
     };
-    const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? '{}') as {
-      categorias?: Record<string, string>;
-    };
-    return parsed.categorias ?? {};
+    const content = data.choices?.[0]?.message?.content ?? '{}';
+    const parsed = JSON.parse(content) as { categorias?: unknown };
+    if (!Array.isArray(parsed.categorias)) {
+      this.logger.warn(
+        `Groq categorizar: respuesta inesperada ${content.slice(0, 300)}`,
+      );
+      return result;
+    }
+    pending.forEach((d, i) => {
+      const c = (parsed.categorias as unknown[])[i];
+      if (typeof c === 'string' && c.trim()) result[d] = c.trim();
+    });
+    return result;
   }
 
   private async safeRecalculate(userId: string) {

@@ -69,3 +69,50 @@ export function parseStatement(text: string): StatementRow[] {
   }
   return rows;
 }
+
+/** Comercios comunes en México: categoría sin preguntarle a la IA. */
+export const KEYWORD_CATEGORIES: [RegExp, string][] = [
+  [
+    /uber ?eats|rappi|didi ?food|starbucks|restaur|taquer|tacos|pizza|burger|mcdonald|kfc|subway|domino|cafe|mariscos|sushi|cocina/i,
+    'Comida',
+  ],
+  [
+    /oxxo|7.?eleven|walmart|bodega aurrera|soriana|chedraui|\bheb\b|costco|sams|la comer|superama|city market/i,
+    'Supermercado',
+  ],
+  [
+    /uber|didi|cabify|autobus|ado\b|vivaaerobus|volaris|aeromexico|caseta|peaje|iave|televia/i,
+    'Transporte',
+  ],
+  [/pemex|gasolin|bp\b|shell|mobil|oxxo gas|g500|repsol/i, 'Gasolina'],
+  [
+    /netflix|spotify|disney|hbo|prime video|youtube|apple\.com|icloud|google|openai|chatgpt|claude|xbox|playstation|crunchyroll/i,
+    'Suscripciones',
+  ],
+  [
+    /cfe|telmex|totalplay|izzi|megacable|telcel|at&t|movistar|bait|gas natural/i,
+    'Servicios',
+  ],
+  [
+    /farmacia|similares|benavides|del ahorro|hospital|medic|doctor|dental|laboratorio/i,
+    'Salud',
+  ],
+  [
+    /amazon|mercado ?pago|mercadolibre|shein|temu|aliexpress|liverpool\.com/i,
+    'Compras en línea',
+  ],
+  [/cinepolis|cinemex|ticketmaster|steam|boletos/i, 'Entretenimiento'],
+  [
+    /liverpool|palacio de hierro|zara|h&m|c&a|coppel|suburbia|nike|adidas|cuidado con el perro/i,
+    'Ropa',
+  ],
+  [/home depot|sodimac|ikea|elektra|best buy/i, 'Hogar'],
+  [/interes|comision|iva |anualidad/i, 'Intereses y comisiones'],
+];
+
+/** Usa la categoría del usuario si ya tiene una con ese nombre (sin importar mayúsculas). */
+export function matchUserCategory(name: string, userCategories: string[]) {
+  return (
+    userCategories.find((c) => c.toLowerCase() === name.toLowerCase()) ?? name
+  );
+}

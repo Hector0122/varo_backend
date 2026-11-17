@@ -1,4 +1,4 @@
-import { parseStatement } from './statement.parser';
+import { KEYWORD_CATEGORIES, parseStatement } from './statement.parser';
 
 describe('parseStatement', () => {
   it('saca movimientos y omite resúmenes y meses sin intereses', () => {
@@ -37,5 +37,15 @@ describe('parseStatement', () => {
         type: 'EXPENSE',
       },
     ]);
+  });
+
+  it('categoriza comercios comunes por palabra clave', () => {
+    const cat = (d: string) =>
+      KEYWORD_CATEGORIES.find(([re]) => re.test(d))?.[1];
+    expect(cat('UBER *TRIP')).toBe('Transporte');
+    expect(cat('UBER EATS')).toBe('Comida');
+    expect(cat('NETFLIX.COM')).toBe('Suscripciones');
+    expect(cat('OXXO LA PAZ')).toBe('Supermercado');
+    expect(cat('TIENDA RANDOM')).toBeUndefined();
   });
 });
