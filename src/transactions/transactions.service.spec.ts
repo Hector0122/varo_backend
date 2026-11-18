@@ -111,9 +111,11 @@ describe('TransactionsService - linked transaction sync', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         update: jest.fn(),
         delete: jest.fn(),
+        create: jest.fn(),
       },
       financialObjective: {
         update: jest.fn(),
+        findFirst: jest.fn(),
       },
       $transaction: jest.fn((callback: any) => callback(prisma)),
     };
@@ -252,6 +254,143 @@ describe('TransactionsService - linked transaction sync', () => {
 
       expect(prisma.objectiveEntry.update).not.toHaveBeenCalled();
       expect(prisma.financialObjective.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update paidWith (cambiar con qué se pagó)', () => {
+    const plainTx = {
+      id: 'tx1',
+      userId: 'user1',
+      amount: 25,
+      type: 'EXPENSE',
+      date: new Date('2026-11-17'),
+    };
+
+    it('efectivo → cuenta: crea WITHDRAW y baja el saldo de la cuenta', async () => {
+      prisma.transaction.findFirst.mockResolvedValue(plainTx);
+      prisma.financialObjective.findFirst.mockResolvedValue({
+        id: 'mp',
+        type: 'SAVING_GOAL',
+      });
+
+      await service.update('tx1', 'user1', { paidWith: 'mp' });
+
+      expect(prisma.financialObjective.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'mp', userId: 'user1' } }),
+      );
+      expect(prisma.objectiveEntry.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          objectiveId: 'mp',
+          amount: 25,
+          type: 'WITHDRAW',
+          transactionId: 'tx1',
+        }),
+      });
+      expect(prisma.financialObjective.update).toHaveBeenCalledWith({
+        where: { id: 'mp' },
+        data: { currentAmount: { increment: -25 } },
+      });
+    });
+
+    it('tarjeta → efectivo: borra la entrada y revierte deuda y total cargado', async () => {
+      prisma.transaction.findFirst.mockResolvedValue(plainTx);
+      prisma.objectiveEntry.findUnique.mockResolvedValue({
+        id: 'e1',
+        objectiveId: 'bbva',
+        amount: 25,
+        type: 'INCREASE',
+        objective: { type: 'DEBT_PAYOFF' },
+      });
+
+      await service.update('tx1', 'user1', { paidWith: null });
+
+      expect(prisma.objectiveEntry.delete).toHaveBeenCalledWith({
+        where: { id: 'e1' },
+      });
+      expect(prisma.financialObjective.update).toHaveBeenCalledWith({
+        where: { id: 'bbva' },
+        data: {
+          currentAmount: { increment: -25 },
+          targetAmount: { increment: -25 },
+        },
+      });
+      expect(prisma.objectiveEntry.create).not.toHaveBeenCalled();
+    });
+
+    it('cuenta → tarjeta con nuevo monto: regresa el saldo y carga el monto nuevo a la tarjeta', async () => {
+      prisma.transaction.findFirst.mockResolvedValue(plainTx);
+      prisma.objectiveEntry.findUnique.mockResolvedValue({
+        id: 'e1',
+        objectiveId: 'mp',
+        amount: 25,
+        type: 'WITHDRAW',
+        objective: { type: 'SAVING_GOAL' },
+      });
+      prisma.financialObjective.findFirst.mockResolvedValue({
+        id: 'bbva',
+        type: 'DEBT_PAYOFF',
+      });
+
+      await service.update('tx1', 'user1', { paidWith: 'bbva', amount: 30 });
+
+      expect(prisma.financialObjective.update).toHaveBeenCalledWith({
+        where: { id: 'mp' },
+        data: { currentAmount: { increment: 25 } },
+      });
+      expect(prisma.objectiveEntry.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ objectiveId: 'bbva', amount: 30, type: 'INCREASE' }),
+      });
+      expect(prisma.financialObjective.update).toHaveBeenCalledWith({
+        where: { id: 'bbva' },
+        data: {
+          currentAmount: { increment: 30 },
+          targetAmount: { increment: 30 },
+        },
+      });
+      expect(prisma.objectiveEntry.update).not.toHaveBeenCalled();
+    });
+
+    it('mismo paidWith: no toca nada', async () => {
+      prisma.transaction.findFirst.mockResolvedValue(plainTx);
+      prisma.objectiveEntry.findUnique.mockResolvedValue({
+        id: 'e1',
+        objectiveId: 'mp',
+        amount: 25,
+        type: 'WITHDRAW',
+        objective: { type: 'SAVING_GOAL' },
+      });
+
+      await service.update('tx1', 'user1', { paidWith: 'mp' });
+
+      expect(prisma.objectiveEntry.delete).not.toHaveBeenCalled();
+      expect(prisma.objectiveEntry.create).not.toHaveBeenCalled();
+      expect(prisma.financialObjective.update).not.toHaveBeenCalled();
+    });
+
+    it('rechaza cambiarlo en un pago de deuda o abono a meta', async () => {
+      prisma.transaction.findFirst.mockResolvedValue(plainTx);
+      prisma.objectiveEntry.findUnique.mockResolvedValue({
+        id: 'e1',
+        objectiveId: 'bbva',
+        amount: 25,
+        type: 'PAYMENT',
+        objective: { type: 'DEBT_PAYOFF' },
+      });
+
+      await expect(
+        service.update('tx1', 'user1', { paidWith: null }),
+      ).rejects.toThrow('deuda o meta');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rechaza una tarjeta/cuenta de otro usuario', async () => {
+      prisma.transaction.findFirst.mockResolvedValue(plainTx);
+      prisma.financialObjective.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update('tx1', 'user1', { paidWith: 'ajena' }),
+      ).rejects.toThrow('no encontrada');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 });
