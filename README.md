@@ -26,6 +26,7 @@ Desplegado en Railway.
 - **Metas y deudas comparten un solo modelo de datos** (`FinancialObjective`) con semántica inversa — una meta avanza `0 → target`, una deuda avanza `balance → 0` — reusando el mismo motor de forecast para ambas.
 - El **forecast se recalcula en cada movimiento** (create/update/delete), no es un valor cacheado.
 - El **`userId` nunca viaja en el body** de la request — se extrae del JWT en cada endpoint protegido.
+- **Cada gasto se paga con algo**: efectivo (movimiento suelto), una tarjeta de crédito (entrada `INCREASE` que sube su deuda) o la cuenta principal, p. ej. saldo de Mercado Pago (entrada `WITHDRAW` con categoría que baja su saldo). `POST /objectives/:id/entries` lo registra y `PATCH /transactions/:id` con `paidWith` (id de tarjeta/cuenta, o `null` = efectivo) lo cambia ajustando saldos y deudas.
 - El **escaneo de tickets usa un modelo de visión** (Groq/Llama Vision), no OCR clásico, para extraer monto, categoría y fecha directo de la foto.
 
 ## Licencia
