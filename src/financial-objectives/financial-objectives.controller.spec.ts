@@ -134,6 +134,29 @@ describe('FinancialObjectivesController', () => {
       );
     });
 
+    it('links an EXPENSE in the given category for an account WITHDRAW (pagado con la cuenta)', async () => {
+      objectives.findOneAny.mockResolvedValue({
+        id: 'acc1',
+        type: 'SAVING_GOAL',
+        name: 'Mercado Pago',
+        currentAmount: 100,
+      });
+      objectives.applyEntry.mockResolvedValue({ id: 'acc1' });
+
+      await controller.addEntry(req, 'acc1', {
+        type: 'WITHDRAW',
+        amount: 25,
+        category: 'Telcel',
+      } as any);
+
+      expect(objectives.applyEntry).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryType: 'WITHDRAW',
+          linkedTransaction: { type: 'EXPENSE', category: 'Telcel', note: 'Cuenta: Mercado Pago' },
+        }),
+      );
+    });
+
     it('does not link a transaction for a debt INCREASE entry, and increments the target', async () => {
       objectives.findOneAny.mockResolvedValue({
         id: 'debt1',

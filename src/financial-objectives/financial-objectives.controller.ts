@@ -252,6 +252,14 @@ export class FinancialObjectivesController {
         note: note ?? `Ahorro: ${objective.name}`,
       };
     }
+    if (entryType === 'WITHDRAW' && category) {
+      // Pago directo desde la cuenta (p. ej. Mercado Pago): gasto en su categoría y baja el saldo.
+      return {
+        type: 'EXPENSE' as const,
+        category,
+        note: note ?? `Cuenta: ${objective.name}`,
+      };
+    }
     if (entryType === 'WITHDRAW') {
       return {
         type: 'INCOME' as const,
