@@ -171,8 +171,68 @@ export class TransactionsService {
       ? Number(dto.amount) - Number(existing.amount)
       : 0;
 
+    // Cambiar "Pagado con": se quita la entrada de la tarjeta/cuenta anterior y se crea en la nueva.
+    const relink =
+      dto.paidWith !== undefined &&
+      dto.paidWith !== (entry?.objectiveId ?? null);
+    let target: { id: string; type: 'SAVING_GOAL' | 'DEBT_PAYOFF' } | null =
+      null;
+    if (relink) {
+      if (entry && !['INCREASE', 'WITHDRAW'].includes(entry.type)) {
+        throw new BadRequestException(
+          'Este movimiento viene de una deuda o meta: cámbialo desde ahí',
+        );
+      }
+      if ((dto.type ?? existing.type) !== 'EXPENSE') {
+        throw new BadRequestException('Solo los gastos tienen "Pagado con"');
+      }
+      if (dto.paidWith) {
+        target = await this.prisma.financialObjective.findFirst({
+          where: { id: dto.paidWith, userId },
+          select: { id: true, type: true },
+        });
+        if (!target) throw new NotFoundException('Tarjeta o cuenta no encontrada');
+      }
+    }
+
     const tx = await this.prisma.$transaction(async (txClient) => {
-      if (amountChanged && entry) {
+      if (relink) {
+        const amount = Number(dto.amount ?? existing.amount);
+        if (entry) {
+          await txClient.objectiveEntry.delete({ where: { id: entry.id } });
+          const sign = objectiveEntrySign(entry.objective.type, entry.type);
+          await txClient.financialObjective.update({
+            where: { id: entry.objectiveId },
+            data: {
+              currentAmount: { increment: -sign * Number(entry.amount) },
+              // applyEntry sube targetAmount en cada compra (INCREASE): se revierte igual.
+              ...(entry.type === 'INCREASE' && {
+                targetAmount: { increment: -Number(entry.amount) },
+              }),
+            },
+          });
+        }
+        if (target) {
+          const type = target.type === 'DEBT_PAYOFF' ? 'INCREASE' : 'WITHDRAW';
+          await txClient.objectiveEntry.create({
+            data: {
+              objectiveId: target.id,
+              amount,
+              type,
+              purchaseDate: dto.date ? parseDateInput(dto.date) : existing.date,
+              transactionId: id,
+            },
+          });
+          const sign = objectiveEntrySign(target.type, type);
+          await txClient.financialObjective.update({
+            where: { id: target.id },
+            data: {
+              currentAmount: { increment: sign * amount },
+              ...(type === 'INCREASE' && { targetAmount: { increment: amount } }),
+            },
+          });
+        }
+      } else if (amountChanged && entry) {
         await txClient.objectiveEntry.update({
           where: { id: entry.id },
           data: { amount: dto.amount },
