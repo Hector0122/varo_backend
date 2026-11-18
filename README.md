@@ -7,7 +7,7 @@ API REST para Varo, una app móvil de finanzas personales para Android. Capturas
 | | |
 |---|---|
 | Framework | NestJS 11 |
-| ORM / DB | Prisma + PostgreSQL (Neon) |
+| ORM / DB | Prisma + PostgreSQL (Railway) |
 | Auth | JWT (access + refresh) |
 | IA | Groq Vision — extracción de datos de tickets |
 

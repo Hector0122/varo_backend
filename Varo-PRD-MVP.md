@@ -143,7 +143,7 @@ Un módulo completo de gestión de deudas existe en backend y frontend pero no f
 |------|-----------|---------|
 | Backend | NestJS | 11 |
 | ORM | Prisma | 5.22.0 |
-| DB | PostgreSQL (Neon) | - |
+| DB | PostgreSQL (Railway) | - |
 | Auth | @nestjs/jwt + passport-jwt + bcryptjs | - |
 | Validación | class-validator + class-transformer | - |
 | Mapped Types | @nestjs/mapped-types | 2.1.1 |
@@ -199,7 +199,7 @@ Esta migración fue destructiva a propósito: como el proyecto usa `prisma db pu
 - **Prisma 5 vs 7**: Se mantuvo Prisma 5.22.0 (compatible con CJS y `@prisma/client` clásico). No migrar a v7 hasta que NestJS soporte ESM nativo.
 - **Módulo TS**: `commonjs` + `node` (no `nodenext`) para compatibilidad con Prisma.
 - **Seguridad**: Todas las rutas de transactions y goals usan `JwtAuthGuard`. El userId se extrae del JWT, no del body.
-- **DB URL**: Neon PostgreSQL. Si hay errores de conexión, verificar que el endpoint de Neon esté activo.
+- **DB URL**: Postgres en el mismo proyecto de Railway (migrado desde Neon en nov 2026). El backend usa `DATABASE_URL=${{Postgres.DATABASE_URL}}` por la red privada; para conectarte desde fuera crea un TCP proxy temporal (`railway tcp-proxy create --service Postgres --port 5432`).
 - **Railway**: Requiere `postinstall: "prisma generate"` porque `node_modules` se reinstala en cada deploy y el cliente Prisma no se commitea.
 - **Frontend env**: No usar `react-native-dotenv` (problemas con Metro). En su lugar: script `generate-config.js` que lee `.env` → `src/config.ts`.
 - **Auth state**: Usar React Context (no hook local con `useState`) para que el estado de autenticación sea observable por todo el árbol de componentes.
